@@ -1282,6 +1282,46 @@ def _check_registry_source(
     )
 
 
+def _check_marketplace_allow(declared: Sequence, policy: MarketplacePolicy) -> CheckResult:
+    """Check root-declared ``marketplaces:`` origins against ``marketplace.allow`` (#2903).
+
+    A local catalog has no origin and is refused, as is an entry whose source
+    cannot be parsed: an allow-list must never pass an origin it cannot name.
+    """
+    from ..marketplace.project_marketplaces import declared_marketplace_origin
+    from ..marketplace.source_identity import marketplace_policy_subject
+    from .matcher import first_matching_pattern
+
+    check_name = "marketplace-allow"
+    patterns = tuple(marketplace_policy_subject(p) for p in policy.allow or ())
+    subjects: list[PolicySubject] = []
+    for entry in declared:
+        try:
+            origin = declared_marketplace_origin(entry)
+        except ValueError:
+            origin = ""
+        subject = marketplace_policy_subject(origin) if origin else ""
+        if subject and first_matching_pattern(subject, patterns) is not None:
+            continue
+        shown = subject or entry.source
+        reason = (
+            f"origin '{shown}' is not in the org policy marketplace.allow list; "
+            "remove it from 'marketplaces:' in apm.yml or ask your org admin to allow it"
+        )
+        subjects.append(PolicySubject(f"marketplace '{entry.name}'", reason, remedy=None))
+    if subjects:
+        return CheckResult(
+            name=check_name,
+            passed=False,
+            message=f"{len(subjects)} marketplace(s) not allowed by org policy",
+            details=[f"{s.ref}: {s.reason}" for s in subjects],
+            subjects=tuple(subjects),
+        )
+    return CheckResult(
+        name=check_name, passed=True, message="All declared marketplaces are allowed"
+    )
+
+
 def _check_pinned_constraints(
     deps: list[DependencyReference],
     policy: DependencyPolicy,
@@ -1432,6 +1472,7 @@ def run_dependency_policy_checks(
     direct_dep_keys: set[str] | None = None,
     source_deps: Iterable[DependencyReference] | None = None,
     declared_refs: Mapping[str, Sequence[DependencyReference]] | None = None,
+    declared_marketplaces: Sequence | None = None,
 ) -> CIAuditResult:
     """Evaluate :class:`ApmPolicy` against an already-resolved dependency set.
 
@@ -1499,6 +1540,10 @@ def run_dependency_policy_checks(
         the install-pipeline callers pass the declarations they captured
         beforehand and ``require_pinned_constraint`` judges the authored
         constraint rather than the selected tag (#3224).
+    declared_marketplaces:
+        The root manifest's ``marketplaces:`` entries (``APMPackage.
+        marketplaces``). Checked against ``marketplace.allow`` when both are
+        set.
 
     Returns
     -------
@@ -1575,6 +1620,8 @@ def run_dependency_policy_checks(
             deps_list, policy.dependencies, direct_dep_keys, declared_refs=declared_refs
         ),
     ]
+    if declared_marketplaces is not None and policy.marketplace.allow is not None:
+        remaining_checks.append(_check_marketplace_allow(declared_marketplaces, policy.marketplace))
     # MCP checks -- when mcp_deps is None (not provided), skip entirely.
     # When mcp_deps is an empty list (provided but no MCP deps), still
     # run MCP checks so they report "no X configured" for completeness.
@@ -1722,6 +1769,7 @@ def run_policy_checks(
         source_deps=source_deps,
         # Judge the same source-selected declarations as the install gate.
         declared_refs=collect_manifest_declarations(manifest),
+        declared_marketplaces=manifest.marketplaces,
     )
     result.checks.extend(dep_result.checks)
 

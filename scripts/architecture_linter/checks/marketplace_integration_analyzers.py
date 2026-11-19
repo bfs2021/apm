@@ -43,6 +43,9 @@ from scripts.architecture_linter.checks.marketplace_package_and_registration imp
 from scripts.architecture_linter.checks.marketplace_package_and_registration import (
     RULES as _PACKAGE_REGISTRATION_RULES,
 )
+from scripts.architecture_linter.checks.marketplace_project_map import (
+    RULES as _PROJECT_MAP_RULES,
+)
 from scripts.architecture_linter.checks.marketplace_tag_and_version import (
     COLLECTORS as _TAG_VERSION_COLLECTORS,
 )
@@ -60,6 +63,7 @@ RULES = (
     + _CATALOG_FRESHNESS_RULES
     + _PACK_PLUGIN_MANIFEST_RULES
     + _DEPENDENCY_CONFUSION_RULES
+    + _PROJECT_MAP_RULES
 )
 COLLECTORS = (
     _TAG_VERSION_COLLECTORS

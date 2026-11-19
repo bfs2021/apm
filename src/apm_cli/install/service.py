@@ -221,18 +221,26 @@ class InstallService:
         event = self._build_event("pre-install", request)
         runner.fire("pre-install", event)
 
-        if request.frozen:
-            # req-lk-006: the lockfile is never written in frozen mode.
-            # Suppress at the chokepoint, then decide from what was
-            # withheld whether this install can report success.  The
-            # pipeline still deploys, as `npm ci` does.
-            from apm_cli.deps.lockfile import suppress_lockfile_writes
+        from apm_cli.core.scope import InstallScope
+        from apm_cli.marketplace.project_marketplaces import bind_project_marketplaces
 
-            with suppress_lockfile_writes() as withheld:
+        # The root project's ``marketplaces:`` map resolves this install (#2903).
+        with bind_project_marketplaces(
+            getattr(request.apm_package, "marketplaces", None),
+            user_scope=request.scope is InstallScope.USER,
+        ):
+            if request.frozen:
+                # req-lk-006: the lockfile is never written in frozen mode.
+                # Suppress at the chokepoint, then decide from what was
+                # withheld whether this install can report success.  The
+                # pipeline still deploys, as `npm ci` does.
+                from apm_cli.deps.lockfile import suppress_lockfile_writes
+
+                with suppress_lockfile_writes() as withheld:
+                    result = self._run_pipeline(request)
+            else:
+                withheld = None
                 result = self._run_pipeline(request)
-        else:
-            withheld = None
-            result = self._run_pipeline(request)
 
         install_worked = result.disposition in {
             InstallDisposition.SUCCESS,

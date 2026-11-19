@@ -21,6 +21,7 @@ from .schema import (
     ExecutablesPolicy,
     IntegrityPolicy,
     ManifestPolicy,
+    MarketplacePolicy,
     McpPolicy,
     McpTransportPolicy,
     PolicyCache,
@@ -56,6 +57,7 @@ _KNOWN_TOP_LEVEL_KEYS = {
     "unmanaged_files",
     "security",
     "registry_source",
+    "marketplace",
     "bin_deploy",
     "executables",
 }
@@ -87,7 +89,7 @@ def validate_policy(data: dict) -> tuple[list[str], list[str]]:
     for key in sorted(unknown):
         warnings.append(f"Unknown top-level policy key: '{key}'")
 
-    for key in ("mcp", "manifest", "compilation", "registry_source", "bin_deploy"):
+    for key in ("mcp", "manifest", "compilation", "registry_source", "marketplace", "bin_deploy"):
         value = data.get(key)
         if value is not None and not isinstance(value, dict):
             errors.append(f"{key} must be a YAML mapping")
@@ -124,6 +126,15 @@ def validate_policy(data: dict) -> tuple[list[str], list[str]]:
                 errors.append(f"cache.ttl must be a positive integer, got '{ttl}'")
             elif ttl <= 0:
                 errors.append(f"cache.ttl must be a positive integer, got {ttl}")
+
+    marketplace = data.get("marketplace")
+    if isinstance(marketplace, dict):
+        allow = marketplace.get("allow")
+        # Fail closed: a malformed allow-list must not read as "no opinion".
+        if allow is not None and (
+            not isinstance(allow, list) or not all(isinstance(item, str) for item in allow)
+        ):
+            errors.append("marketplace.allow must be a YAML list of origin patterns")
 
     # dependencies
     deps = data.get("dependencies")
@@ -365,6 +376,10 @@ def _build_policy(data: dict) -> ApmPolicy:
         allow_non_registry=bool(reg_data.get("allow_non_registry", True)),
     )
 
+    marketplace = MarketplacePolicy(
+        allow=_parse_allow((data.get("marketplace") or {}).get("allow"))
+    )
+
     sec_data = data.get("security") or {}
     raw_audit = sec_data.get("audit")
     audit_data = raw_audit if isinstance(raw_audit, dict) else {}
@@ -417,6 +432,7 @@ def _build_policy(data: dict) -> ApmPolicy:
         manifest=manifest,
         unmanaged_files=unmanaged_files,
         registry_source=registry_source,
+        marketplace=marketplace,
         security=security,
         bin_deploy=bin_deploy,
         executables=executables,

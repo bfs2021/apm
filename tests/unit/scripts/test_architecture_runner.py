@@ -722,6 +722,7 @@ marketplace-integrations-package-construction
 marketplace-integrations-package-format-precedence
 marketplace-integrations-package-projection
 marketplace-integrations-producer-admission
+marketplace-integrations-project-map
 marketplace-integrations-projection-boundary
 marketplace-integrations-raw-diagnostics
 marketplace-integrations-removed-plugin-lifecycle
