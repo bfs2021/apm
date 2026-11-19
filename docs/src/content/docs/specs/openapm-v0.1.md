@@ -136,7 +136,7 @@ between the companion corpus and the implementation.
 
 ### 1.3 Document conventions
 
-- OpenAPM v0.1 carries **148 normative statements (143 MUST, 5 SHOULD)** indexed in
+- OpenAPM v0.1 carries **150 normative statements (145 MUST, 5 SHOULD)** indexed in
   [Appendix C](#appendix-c-index-of-normative-statements).
 - All on-disk files defined by this specification are **YAML 1.2**
   parsed under the safe subset defined in
@@ -345,6 +345,7 @@ The manifest top-level fields are:
 | `compilation`   | no       | mapping                                                                                       |
 | `policy`        | no       | mapping; consumer-side policy hooks                                                           |
 | `marketplace`   | no       | mapping; producer authoring block, see [Section 4.7](#47-marketplace-authoring-block-normative-input) |
+| `marketplaces`  | no       | list; root project marketplace map, see [Section 4.2.5](#425-marketplaces) |
 | `x-<name>`      | no       | vendor extension, see [Section 4.6.2](#462-vendor-extensions)                                 |
 
 #### 4.2.1 `target`
@@ -481,6 +482,58 @@ document that choice in its conformance statement (see
 [Section 11.2](#112-how-to-claim-conformance)). A consumer MUST NOT
 strip any host other than the one selected by `default_host:` or the
 declared implementation-default.
+
+#### 4.2.5 `marketplaces`
+
+The OPTIONAL top-level `marketplaces:` list binds the marketplace names
+that a project's marketplace references (object entries with `name`
+and `marketplace` keys) resolve through. Each entry is a mapping with a
+REQUIRED `name` (ASCII letters, digits, `.`, `_` and `-`), a REQUIRED
+`source` (a catalog location: a Git repository URL or shorthand, a
+direct catalog URL, or a local path) and an OPTIONAL `ref`. Marketplace
+references remain non-normative in v0.1 (see
+[Section 7.1](#71-reference-kinds)); the requirements below apply to a
+consumer that resolves them.
+
+```yaml
+marketplaces:
+  - name: contoso
+    source: https://github.com/contoso/agent-marketplace
+    ref: main
+dependencies:
+  apm:
+    - { name: security-review, marketplace: contoso }
+```
+
+<a id="req-mf-028"></a>
+**[req-mf-028]** A conforming **consumer** implementation that resolves
+marketplace references MUST accept a `marketplaces:` list in the root
+project manifest and MUST: (a) reject, with a diagnostic naming the
+manifest and the entry index, an entry that is not a mapping, lacks
+`name` or `source`, carries an unknown key, or repeats a `name`
+(compared case-insensitively); (b) while resolving that project, resolve
+a reference whose marketplace name the list declares through the
+declared entry, never through a same-named catalog registered in user
+or machine configuration; (c) treat declared names as local to the
+manifest and record, for every marketplace reference it resolves from a
+remote catalog, the catalog origin (not the name) and the resolved
+commit in the lockfile; and (d) never persist a declared entry to any
+user-level or machine-level marketplace registry.
+
+<a id="req-mf-029"></a>
+**[req-mf-029]** A conforming **consumer** implementation that resolves
+marketplace references MUST refuse to install a dependency whose own
+manifest declares `marketplaces:`, with a diagnostic naming the
+dependency. When the root project manifest declares `marketplaces:`,
+the consumer MUST also fail resolution of a transitive marketplace
+reference whose marketplace name the root list does not declare, with a
+diagnostic naming that marketplace and the root manifest entry to add.
+
+> **Note (non-normative).** A declared catalog is reviewed intent of the
+> same kind as a committed Git URL; declaring it grants no trust beyond
+> the consumer's policy. The reference implementation offers an
+> organization policy allow-list for declared catalog origins; that
+> policy key is implementation-defined in v0.1.
 
 ### 4.3 Dependencies block (apm + mcp)
 
@@ -1014,7 +1067,8 @@ This section's normative statements are:
   [req-mf-021](#req-mf-021), [req-mf-022](#req-mf-022),
   [req-mf-023](#req-mf-023), [req-mf-024](#req-mf-024),
   [req-mf-025](#req-mf-025), [req-mf-026](#req-mf-026),
-  [req-mf-027](#req-mf-027),
+  [req-mf-027](#req-mf-027), [req-mf-028](#req-mf-028),
+  [req-mf-029](#req-mf-029),
   [req-ext-001](#req-ext-001),
   [req-ext-002](#req-ext-002),
   [req-ext-003](#req-ext-003),
@@ -2276,7 +2330,8 @@ listed:
 4. **git-literal** -- git URL or shorthand with a literal `ref:`
    (commit SHA, tag, branch).
 5. **marketplace** -- non-normative in v0.1; producer-side
-   authoring artifact only.
+   authoring artifact only. A consumer that resolves marketplace
+   references binds their names per [Section 4.2.5](#425-marketplaces).
 
 <a id="req-rs-008"></a>
 **[req-rs-008]** A conforming **consumer** implementation MUST
@@ -4808,7 +4863,8 @@ conformance statement identifying:
 [req-mf-021](#req-mf-021), [req-mf-022](#req-mf-022),
 [req-mf-023](#req-mf-023), [req-mf-024](#req-mf-024),
 [req-mf-025](#req-mf-025), [req-mf-026](#req-mf-026),
-[req-mf-027](#req-mf-027),
+[req-mf-027](#req-mf-027), [req-mf-028](#req-mf-028),
+[req-mf-029](#req-mf-029),
 [req-ext-001](#req-ext-001), [req-ext-003](#req-ext-003),
 [req-lk-001](#req-lk-001), [req-lk-002](#req-lk-002),
 [req-lk-003](#req-lk-003), [req-lk-004](#req-lk-004),
@@ -5286,6 +5342,8 @@ staged-replacement capability, not every consumer implementation.
 | [req-mf-025](#req-mf-025)                | MUST    | 4.3.2   | consumer    |
 | [req-mf-026](#req-mf-026)                | MUST    | 4.5     | consumer    |
 | [req-mf-027](#req-mf-027)                | MUST    | 4.5     | consumer    |
+| [req-mf-028](#req-mf-028)                | MUST    | 4.2.5   | consumer    |
+| [req-mf-029](#req-mf-029)                | MUST    | 4.2.5   | consumer    |
 | [req-ext-001](#req-ext-001)              | MUST    | 4.1     | consumer    |
 | [req-ext-002](#req-ext-002)              | MUST    | 4.1     | producer    |
 | [req-ext-003](#req-ext-003)              | MUST    | 4.6.2   | consumer    |
@@ -5408,7 +5466,7 @@ staged-replacement capability, not every consumer implementation.
 | [req-rpl-003](#req-rpl-003)              | MUST    | 4.8.1   | consumer    |
 | [req-rpl-004](#req-rpl-004)              | MUST    | 4.8.1   | consumer    |
 
-**Total normative statements: 148** (143 MUST, 5 SHOULD).
+**Total normative statements: 150** (145 MUST, 5 SHOULD).
 
 ---
 
@@ -5483,6 +5541,7 @@ staged-replacement capability, not every consumer implementation.
 | 0.1.66 (proposed) | 2026-11-19 | Amendment for the portable native-plugin approval pin (issue #3919 follow-up, PR #3290; implementation in PR #3989). Revised [req-na-005](#req-na-005) in place: the approval that permits native activation is bound to the plugin root's approval digest, which is the [req-na-002](#req-na-002) root digest construction over the same file set, order and encoding with the executable-bit byte omitted, so one approval covers the same paths and bytes on operating systems whose file systems do not carry that bit; the approval digest is distinct from the root digest the lock records. The [req-na-002](#req-na-002) root digest keeps the bit and still gates integrity between the materialized source, the deployed root and the lock. Revised the [req-na-002](#req-na-002) file-set exclusion clause in place: a root `apm.yml` and a root `.apm/` are excluded whether or not the consumer generated them, so they are neither digested nor deployed under the profile root, and a plugin whose manifest references them is not natively activated. Added the `native_plugin` row to Section 5.2, documenting the lock data that [req-na-002](#req-na-002) and [req-na-004](#req-na-004) already require; both now cross-reference it. Under Section 9.2 this changes verdicts: a consumer that binds the approval to the executable-bit-including root digest, or that digests or deploys an author-shipped root `apm.yml` or `.apm/`, no longer conforms. Approvals recorded against the earlier root digest no longer match, so the plugin is withheld with the [req-na-005](#req-na-005) diagnostic until it is re-approved; a lock entry whose root digest was computed under the earlier exclusion reading is reported as drift under [Section 5.5](#55-drift-and-integrity-model). The reference implementation behaves this way. The root digest is not portable across file systems with different executable-bit semantics; the [req-na-002](#req-na-002) editorial note records this limitation pending the project-scope route (#3921). Sections 5.2, 8.5.11 and 10.18 are updated; schema bytes are unchanged. No requirement ID, keyword or statement count changes. Statement count: 148 (143 MUST, 5 SHOULD). |
 | 0.1.67 (proposed) | 2026-11-19 | Amendment for accepted issue #3993. Revised [req-pl-018](#req-pl-018) (Section 6.3.1, governance MUST) in place. Clause (g) now binds a `dependencies.require` entry to one host with the same effective host and ASCII mapping as `allow` and `deny`: a host-qualified entry identifies a dependency only on the named host, and a hostless entry only on the implementation-default host of the evaluating implementation (never rebound by a consumer manifest `default_host:`); local paths still match hostless entries, dependencies on dotless hosts other than the implementation-default host cannot be identified at this revision, and the first identified dependency in the order the check evaluates dependencies (declaration order within one manifest) is the one identified. Every check evaluating a `require` entry MUST resolve it to that dependency on the manifest and lockfile side, reading the lock entry by the dependency's own lockfile identity, and MUST treat an entry that identifies no dependency as a violation routed through `enforcement`, never skipping it. Clause (g) also states that a dependency written without a host takes the `default_host:` of its declaring manifest as its effective host when declared, matching resolution under [req-mf-019](#req-mf-019); because clause (g) defines one effective host for every pattern field, this also applies to host-qualified `allow` and `deny` patterns: for a manifest declaring a non-default `default_host:`, a host-qualified pattern naming that host newly matches the manifest's shorthand dependencies and one naming the implementation-default host no longer does (the reference implementation already behaved this way). Clause (a), the Section 6.3.1 table and the Section 10.8 note were aligned. Under Section 9.2 this changes an evaluation already defined by req-pl-018 and is not behavior-neutral errata: a host-qualified entry can newly pass on any host, including one naming the implementation-default host; a hostless entry for a dependency on any other host newly fails; and an entry naming no dependency newly fails a check that verifies the entry in the lockfile. Policy authors migrate by host-qualifying `require` entries for packages off the implementation-default host; the diagnostic names the entry to write. Source replacement under [req-rpl-002](#req-rpl-002) is unchanged. The concurrent 0.1.66 proposal is independent; this amendment does not adopt it. No new normative statement; count unchanged at 148 (143 MUST, 5 SHOULD). Subject to the Section 9.3 amendment panel and comment window. |
 | 0.1.68 (proposed) | 2026-11-19 | Amendment for accepted issue #4000 (hash framing hardening). Revised [req-lk-016](#req-lk-016) (Section 5.2, consumer MUST) in place: the byte stream a package `content_hash` digests is named by `lockfile_version`. A new version `"4"` digests, per file in ascending byte-wise POSIX path order, the UTF-8 relative path, one NUL byte and the raw SHA-256 of the file bytes (the [Section 8.5.11](#8511-native-plugin-activation-profile) root-digest framing without its executable-bit byte); versions `"1"` to `"3"` keep the implementation's legacy tree stream. Values keep the `sha256:<hex>` envelope; no new prefix is introduced. A consumer verifies each `content_hash` with the stream its version names; a writable install MAY promote a version `"1"` to `"3"` lockfile to `"4"` only by re-hashing every package row from verified or freshly accepted bytes, and otherwise keeps the version and every recorded value; a frozen install, `apm audit` and any operation that does not otherwise write the lockfile never promote or rewrite. Section 5.4 now names version `"4"`, which admits every earlier field including version `"3"` replacement state; a consumer that does not recognise it refuses the lockfile under [req-lk-004](#req-lk-004). Appendix A selects a new lockfile resource, `lockfile-v0.1.68.schema.json`, that adds `"4"` to the `lockfile_version` enum; the 0.1.60 resource keeps its ID and bytes. Under Section 9.2 this changes recorded values for promoted lockfiles: a consumer that does not recognise `"4"` now refuses them instead of verifying them. Lockfiles that stay at `"1"` to `"3"` verify unchanged. Keyword, section and conformance class are unchanged, so the Appendix C row is unchanged; the requirements manifest notes and conformance coverage are updated. No new normative statement; count unchanged at 148 (143 MUST, 5 SHOULD). Subject to the Section 9.3 amendment panel and comment window. |
+| 0.1.69 (proposed) | 2026-11-19 | Amendment for accepted issue #2903 (root project marketplace map). Added Section 4.2.5 `marketplaces` and two consumer MUSTs, both conditional on resolving marketplace references, which stay non-normative in v0.1. [req-mf-028](#req-mf-028): the root project manifest may declare a `marketplaces:` list (`name`, `source`, optional `ref`); malformed, unknown-key and duplicate-name entries are rejected; a declared name resolves through its entry, never through a same-named user or machine registration; names are manifest-local and the lockfile records the catalog origin and resolved commit; a declared entry is never persisted to a user-level or machine-level registry. [req-mf-029](#req-mf-029): a dependency whose manifest declares `marketplaces:` is refused, and when the root declares the list a transitive marketplace reference must name a root-declared entry or resolution fails with a diagnostic naming the entry to add. Under Section 9.2, a consumer that resolves marketplace references and ignores a dependency's `marketplaces:` key, or lets a same-named registration override a root declaration, no longer conforms; the reference implementation previously refused the key in every project and package manifest. Sections 1.3, 4.2, 4.9, 7.1, 11.3.2, Appendix C, the requirements manifest, a conformance fixture and conformance coverage are updated; schema bytes are unchanged (the manifest schemas already admit unknown top-level keys). Adds two MUSTs. Statement count: 148 -> 150 (145 MUST, 5 SHOULD). |
 
 In the Date column, a row marked (proposed) gives its proposal date and any other row gives the date its change took effect in this working draft; for 0.1.61, 0.1.62, 0.1.63 and 0.1.65 that is the adoption date, and each of those rows states its proposal date.
 The independently drafted 0.1.52, 0.1.53, 0.1.55, 0.1.57, 0.1.58 and
