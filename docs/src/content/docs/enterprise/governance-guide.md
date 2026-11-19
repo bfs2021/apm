@@ -27,7 +27,7 @@ Most relevant: section 7 (bypass contract), section 8 (install gate guarantees),
 
 You need to roll governance out across N repos without breaking the developer flow that earned you those N repos in the first place.
 
-APM's policy engine is opt-in per repo until your org policy file lands in `<org>/.github`. The recommended path is `enforcement: warn` first, measure violations through GitHub Code Scanning, then flip to `block` once the noise is gone. Developers do code review; you don't ship a new tool. Air-gapped CI is supported with a one-line workaround.
+APM's policy engine is opt-in per repo until your org policy file lands in `<org>/.github`. The recommended path is `enforcement: warn` first, measure violations through GitHub Code Scanning, then flip to `block` once the noise is gone. Developers do code review; you don't ship a new tool. Air-gapped CI is supported by passing a vendored policy with `--policy`.
 
 Most relevant: section 1 (this), section 5 (enforcement points), section 9 (air-gapped), section 11 (rollout playbook).
 
@@ -327,7 +327,7 @@ You are NOT guaranteed:
 
 This section covers offline **policy** enforcement (the `apm-policy.yml` cache). For offline **dependency traffic** (routing installs through Artifactory), see [Registry Proxy & Air-gapped](../registry-proxy/).
 
-**For air-gapped CI, run `apm audit --ci --policy ./vendored-policy.yml` as your gating check; do not rely on `apm install` enforcement.**
+**For air-gapped CI, pass the vendored policy to both steps: `apm install --policy ./vendored-policy.yml` blocks at install, and `apm audit --ci --policy ./vendored-policy.yml` gates the PR.**
 
 Cache freshness follows the effective policy's `cache.ttl` (default `3600` seconds, i.e. 1 hour); the 7-day stale ceiling (`MAX_STALE_TTL`) is fixed and cannot be extended by policy. See [Cache and offline behaviour](../policy-reference/#9-cache-and-offline-behaviour) for the full mechanics.
 
@@ -341,7 +341,7 @@ Cache freshness follows the effective policy's `cache.ttl` (default `3600` secon
 Workarounds when the network is unreliable:
 
 - **Audit in CI is fully offline-capable** with `apm audit --ci --policy /path/to/vendored-policy.yml`. The `--policy` argument accepts a local file path and bypasses GitHub discovery entirely. Vendor your org policy into the repo (or a sidecar mount) and audit works in any air-gapped environment. If the file is missing or malformed, audit exits 1 rather than passing without policy checks.
-- **Install does not have a `--policy <path>` flag.** This is a known gap (section 14). The current workaround is `extends: <internal-mirror-url>` from a reachable `<org>/.github/apm-policy.yml`, but the leaf is still fetched via the GitHub API.
+- **Install enforces a vendored policy offline** with `apm install --policy /path/to/vendored-policy.yml`. The file adds to any discovered org policy (tighten-only) and needs no network. A path that cannot be loaded follows `policy.fetch_failure_default`. See [explicit policy source](../policy-reference/#explicit-policy-source).
 - **Cache prewarm** for repeatable offline builds. The cache lives in the platform user cache at `apm/policy_v1/<project-key>/<key>.yml`, where `<project-key>` identifies the resolved project path and `<key>` is `sha256(repo_ref)[:16]`. Prewarming means stashing valid `<key>.yml` and `<key>.meta.json` files in that directory before install runs.
 - **Make policy fail-closed offline.** Set `policy.fetch_failure_default: block` in your project `apm.yml`. With this set, network failure or a malformed policy aborts install instead of warning. Combine with `policy.hash` to detect a tampered mirror.
 
@@ -504,8 +504,7 @@ These are the sharp edges. Plan around them; do not assume they are solved.
 - **Audit-only checks are not enforced at install.** `compilation-strategy`, `source-attribution`, `required-manifest-fields`, `scripts-policy`, and `unmanaged-files` only run under `apm audit --ci --policy <scope>`. Operational mitigation: make `apm audit --ci` a required status check in branch protection. Without that, these rules are advisory only.
 - **`apm compile` and `apm run` do not re-check policy.** They trust install. Operational mitigation: ensure that no compile or run step in CI is reachable without a preceding `apm install` that ran the gate.
 - **`apm audit --ci` in `warn` mode rewrites violations to `passed=True`.** Warn mode never fails CI exit. The visibility is in the SARIF output, not the exit code. Operational mitigation: monitor Code Scanning alerts during the warn-mode rollout phase; do not assume CI green means "no policy violations" while in warn mode.
-- **`apm install` has no `--policy <path>` flag.** Only `apm audit` does. This is the air-gapped install gap. Operational mitigation: use `extends:` from a reachable mirror, or run audit (which does support `--policy <path>`) as the gating check and skip install-time enforcement in air-gapped CI.
-- **Plain git remotes are not auto-discovered.** GitHub and GitHub Enterprise use the `.github` cascade, Azure DevOps uses the org `apm` project and `apm-policy` repository (with `_apm/_apm` as a legacy fallback), and GitLab combines the `apm-policy` projects found from the top-level group down to the project's own subgroup (see [Policy Files](../apm-policy/#where-it-lives)). Configure self-managed GitLab with `GITLAB_HOST` or `APM_GITLAB_HOSTS`. For unsupported remotes, pass `apm audit --ci --policy <path-or-url>` explicitly.
+- **Plain git remotes are not auto-discovered.** GitHub and GitHub Enterprise use the `.github` cascade, Azure DevOps uses the org `apm` project and `apm-policy` repository (with `_apm/_apm` as a legacy fallback), and GitLab combines the `apm-policy` projects found from the top-level group down to the project's own subgroup (see [Policy Files](../apm-policy/#where-it-lives)). Configure self-managed GitLab with `GITLAB_HOST` or `APM_GITLAB_HOSTS`. For unsupported remotes and air-gapped installs, pass the policy explicitly: `apm install --policy <path-or-url>` enforces it at install time and `apm audit --ci --policy <path-or-url>` gates the PR.
 - **GitLab treats an unreadable `apm-policy` as absent.** GitLab answers 404 both for a missing project and for a private one the token cannot read, so a policy the CI token is denied is left out of the combined chain. Operational mitigation: give the CI token read access to every `apm-policy` project in the project's namespace ancestry. A subgroup policy can only add restrictions; it cannot drop an ancestor's rules. See [Policy Files](../apm-policy/#where-it-lives).
 - **Trust anchor is `git remote get-url origin`.** A developer who pushes the project to a personal org will have policy discovery resolve `<their-org>/.github/apm-policy.yml` -- which they control. Operational mitigation: branch protection on the canonical repo is the trust boundary; nothing about a personal fork can bypass what your CI requires before merge.
 - **`apm install --dry-run` silently downgrades hash-mismatch.** In dry-run, `raise_blocking_errors=False` (`policy/outcome_routing.py`) causes the mismatch to surface as `discovery_miss` with no "Would be blocked" line and exit 0. Operational mitigation: rely on `apm audit --ci` in CI for hash-pin verification, not on `apm install --dry-run`.

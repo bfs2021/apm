@@ -673,10 +673,39 @@ to the project's own subgroup (the nearest one is the `policy.hash` leaf); a
 flat `<group>/<project>` remote probes only `<group>/apm-policy`. Set
 `GITLAB_HOST` or `APM_GITLAB_HOSTS` to recognize a self-managed host, and use
 `APM_GITLAB_POLICY_REPO` to select another project name. Plain git remotes
-fall through with no policy applied. With `--verbose`, repositories with no detectable git remote
+fall through with no policy applied unless you pass an
+[explicit policy source](#explicit-policy-source). With `--verbose`, repositories with no detectable git remote
 print a "could not determine org" line and skip discovery.
 
-The `--policy <override>` flag is **audit-only today** — it works on `apm audit --ci` but is not yet wired through `apm install`. Use the escape hatches in section 8 if you need to bypass install-time enforcement for a single invocation.
+#### Explicit policy source
+
+`apm install --policy <source>` and `apm update --policy <source>` enforce a
+policy that discovery cannot reach: a plain git remote, another host, or an
+air-gapped install. The source takes the same forms as `apm audit --policy`:
+a local path, `owner/repo`, or an `https://` URL.
+
+```bash
+apm install --policy ./vendored/apm-policy.yml        # air-gapped: no network
+apm install --policy https://policies.corp.example/apm-policy.yml
+```
+
+- **Adds, never removes.** The explicit policy combines with any
+  auto-discovered org policy through the [tighten-only merge](#tighten-only-merge-rules).
+  It cannot re-allow a dependency the org policy denies or lower its
+  enforcement.
+- **Unreachable sources follow `fetch_failure_default`.** If the source cannot
+  be loaded, the project's `policy.fetch_failure_default` decides: `warn`
+  (default) reports it and continues with any discovered policy; `block`
+  fails the install closed.
+- **Reported.** The effective sources print at any verbosity, for example
+  `[i] Policy: org:contoso/.github + file:/repo/vendored/apm-policy.yml -- enforcement=warn`.
+  `apm audit --ci` prints the policy it enforced the same way.
+- The `policy.hash` pin in `apm.yml` covers the discovered org policy, not the
+  explicit source. `--policy` is not valid with `--global` or `--no-policy`.
+
+`apm audit --ci --policy <source>` keeps its own meaning: it audits against
+that one source instead of the discovered policy, and fails closed when the
+source cannot be loaded.
 
 ### 3. Inheritance and composition
 
