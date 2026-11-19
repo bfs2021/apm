@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking changes and upgrade notes
+
+- Claude projects load always-on and directory instructions from `AGENTS.md`, imported by `CLAUDE.md`: run `apm install`, then `apm compile`, and commit; hand-authored `CLAUDE.md` needs `@AGENTS.md`. (closes #3939, #4005)
+
 ## [0.37.0] - 2026-11-20
 
 ### Highlights
