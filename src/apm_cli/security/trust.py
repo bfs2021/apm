@@ -309,7 +309,7 @@ class McpAdmission:
             policy = None
             if not no_policy:
                 from apm_cli.policy.discovery import discover_policy_with_chain
-                from apm_cli.policy.outcome_routing import POLICY_RESOLUTION_FAILURE_OUTCOMES
+                from apm_cli.policy.outcome_routing import unavailable_policy_outcome
 
                 kwargs = {"cache_only": True} if cache_only_policy else {}
                 try:
@@ -318,9 +318,7 @@ class McpAdmission:
                     admission.policy_unavailable = type(exc).__name__
                 else:
                     policy = getattr(result, "policy", None)
-                    outcome = getattr(result, "outcome", None)
-                    if policy is None and outcome in POLICY_RESOLUTION_FAILURE_OUTCOMES:
-                        admission.policy_unavailable = str(outcome)
+                    admission.policy_unavailable = unavailable_policy_outcome(result)
             return exec_trust_context_for_project(
                 grants_manifest, policy=policy, logger=logger, include_user=include_user
             )

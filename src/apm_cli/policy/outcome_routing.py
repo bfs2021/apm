@@ -116,6 +116,15 @@ def route_discovery_outcome(
     outcome = fetch_result.outcome
     source = fetch_result.source
 
+    # Composed sources that produced no policy (#1925) are routed first:
+    # each follows the same fail-closed rules, then the effective policy
+    # (built from the sources that did load) is routed below.
+    route_unavailable_sources(
+        fetch_result,
+        logger=logger,
+        fetch_failure_default=fetch_failure_default,
+        raise_blocking_errors=raise_blocking_errors,
+    )
     # ``disabled`` is normally short-circuited by callers' escape
     # hatches; defensive fall-through here.
     if outcome == "disabled":
@@ -198,6 +207,7 @@ def route_discovery_outcome(
                     age_seconds=fetch_result.cache_age_seconds,
                     subgroup_scoped=fetch_result.subgroup_scoped,
                     chain=fetch_result.chain_sources,
+                    explicit=getattr(fetch_result, "explicit", False),
                 )
             logger.policy_discovery_miss(
                 outcome="cached_stale",
@@ -224,8 +234,77 @@ def route_discovery_outcome(
                 age_seconds=fetch_result.cache_age_seconds,
                 subgroup_scoped=fetch_result.subgroup_scoped,
                 chain=fetch_result.chain_sources,
+                explicit=getattr(fetch_result, "explicit", False),
             )
         return policy
 
     # Defensive: unrecognised outcome -- skip enforcement.
     return None
+
+
+def unavailable_policy_outcome(fetch_result) -> str | None:
+    """Return why part of the effective policy is unknown, or ``None``.
+
+    Covers a failed combined outcome and any composed source carried in
+    ``unavailable_sources`` (#1925), so callers that shortcut the install
+    gate never treat a partially resolved policy as complete.
+    """
+    outcome = getattr(fetch_result, "outcome", "")
+    if outcome in POLICY_RESOLUTION_FAILURE_OUTCOMES:
+        return outcome
+    for unavailable in getattr(fetch_result, "unavailable_sources", None) or ():
+        return unavailable.outcome or "cache_miss_fetch_fail"
+    return None
+
+
+def route_unavailable_sources(
+    fetch_result: PolicyFetchResult,
+    *,
+    logger,
+    fetch_failure_default: str,
+    raise_blocking_errors: bool = True,
+) -> None:
+    """Route each composed source that produced no policy (#1925)."""
+    for unavailable in getattr(fetch_result, "unavailable_sources", None) or ():
+        _route_unavailable_source(
+            unavailable,
+            logger=logger,
+            fetch_failure_default=fetch_failure_default,
+            raise_blocking_errors=raise_blocking_errors,
+        )
+
+
+def _route_unavailable_source(
+    unavailable: PolicyFetchResult,
+    *,
+    logger,
+    fetch_failure_default: str,
+    raise_blocking_errors: bool,
+) -> None:
+    """Route one composed policy source that produced no policy (#1925).
+
+    Hash-pin mismatches and incomplete chains keep their unconditional
+    fail-closed handling. Any other failure follows the project's
+    ``policy.fetch_failure_default``: ``block`` stops the install, ``warn``
+    reports the source and continues with the sources that did load.
+    """
+    if unavailable.outcome in (POLICY_HASH_MISMATCH_OUTCOME, "incomplete_chain"):
+        route_discovery_outcome(
+            unavailable,
+            logger=logger,
+            fetch_failure_default=fetch_failure_default,
+            raise_blocking_errors=raise_blocking_errors,
+        )
+        return
+    source = unavailable.source or "unknown"
+    error = unavailable.error or unavailable.fetch_error or unavailable.outcome
+    if logger is not None:
+        logger.policy_source_unavailable(
+            source=source, error=error, blocking=fetch_failure_default == "block"
+        )
+    if raise_blocking_errors and fetch_failure_default == "block":
+        raise PolicyViolationError(
+            f"Install blocked: policy source {source} could not be loaded ({error}) "
+            "and project apm.yml has policy.fetch_failure_default=block",
+            policy_source=source,
+        )

@@ -90,6 +90,7 @@ from ..utils.console import _rich_echo, _rich_error, _rich_info, _rich_success, 
 from ._helpers import (
     UnknownPackageError,
     _find_apm_yml,
+    explicit_policy_option,
     resolve_requested_packages,
     trust_transitive_mcp_option,
 )
@@ -164,16 +165,17 @@ def _executables_need_reconcile(
     def _policy() -> Any:
         from apm_cli.install.exec_gate import ExecPolicyUnavailable
         from apm_cli.policy.discovery import discover_policy_with_chain
-        from apm_cli.policy.outcome_routing import POLICY_RESOLUTION_FAILURE_OUTCOMES
+        from apm_cli.policy.outcome_routing import unavailable_policy_outcome
 
         try:
             fetch = discover_policy_with_chain(get_deploy_root(scope))
         except Exception as exc:
             raise ExecPolicyUnavailable(str(exc)) from exc
-        # Unknown policy fails toward running the install gate, which then
-        # applies the configured fetch-failure posture.
-        if getattr(fetch, "outcome", "") in POLICY_RESOLUTION_FAILURE_OUTCOMES:
-            raise ExecPolicyUnavailable(fetch.outcome)
+        # Unknown (or partially unknown) policy fails toward running the
+        # install gate, which then applies the configured fetch-failure posture.
+        unavailable = unavailable_policy_outcome(fetch)
+        if unavailable:
+            raise ExecPolicyUnavailable(unavailable)
         return getattr(fetch, "policy", None)
 
     return lock_exec_decisions_stale(
@@ -537,6 +539,7 @@ def _handle_service_only_update(
     ),
 )
 @trust_transitive_mcp_option
+@explicit_policy_option
 @click.pass_context
 @serialized_lifecycle
 def update(
@@ -561,6 +564,7 @@ def update(
         apm update --yes                # Skip the prompt (CI-safe)
         apm update org/pkg-a org/pkg-b  # Refresh only the named packages
         apm update -g                   # Refresh user-scope deps (~/.apm/)
+        apm update --policy ./org-policy.yml  # Also enforce a vendored policy
     """
     from apm_cli.core.scope import InstallScope, get_apm_dir
     from apm_cli.integration.targets import should_use_legacy_skill_paths
@@ -844,6 +848,14 @@ def _run_dep_update_locked(
                     "reconciling deployed executables."
                 )
             elif not _cache_rehydration_required:
+                # The install gate is skipped below, so a --policy source
+                # that cannot be loaded is routed here (#1925).
+                from apm_cli.core.scope import get_deploy_root as _deploy_root
+                from apm_cli.policy.explicit_source import route_unavailable_explicit_sources
+
+                route_unavailable_explicit_sources(
+                    _deploy_root(scope), logger=logger, raise_blocking_errors=not dry_run
+                )
                 retained_count = len(revision_pin_resolution.skips)
                 if retained_count:
                     noun = "pin" if retained_count == 1 else "pins"

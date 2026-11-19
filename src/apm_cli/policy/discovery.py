@@ -35,6 +35,7 @@ from ._remote import (  # noqa: F401  -- re-exported for callers/tests
     _parse_remote_url,
     _remote_url_parts,
 )
+from .explicit_source import compose_explicit_policy
 from .parser import PolicyValidationError, load_policy
 from .project_config import (
     _DEFAULT_HASH_ALGORITHM,
@@ -244,6 +245,9 @@ class PolicyFetchResult:
     ancestry_parents: list[PolicyFetchResult] | None = field(default=None, repr=False)
     chain_sources: list[str] = field(default_factory=list)
     subgroup_scoped: bool = False
+    # Explicit --policy composition (#1925): see policy/explicit_source.py.
+    unavailable_sources: list[PolicyFetchResult] = field(default_factory=list)
+    explicit: bool = False
 
     @property
     def found(self) -> bool:
@@ -285,6 +289,8 @@ def discover_policy_with_chain(
         result outcome is set to ``"hash_mismatch"`` and ``policy`` is
         cleared. The pin applies only to the **leaf** -- parent policies
         in an ``extends:`` chain are the leaf author's responsibility.
+    policy_override:
+        Replaces discovery; otherwise an ``install --policy`` source is composed.
 
     Notes
     -----
@@ -325,6 +331,28 @@ def discover_policy_with_chain(
         if pin is not None:
             expected_hash = pin.normalized
 
+    fetch_result = _discover_one_with_chain(
+        project_root, expected_hash, policy_override, no_cache=no_cache, cache_only=cache_only
+    )
+    if policy_override:
+        return fetch_result
+    return compose_explicit_policy(
+        fetch_result,
+        lambda src: _discover_one_with_chain(
+            project_root, None, src, no_cache=no_cache, cache_only=cache_only
+        ),
+    )
+
+
+def _discover_one_with_chain(
+    project_root: Path,
+    expected_hash: str | None,
+    policy_override: str | None,
+    *,
+    no_cache: bool,
+    cache_only: bool,
+) -> PolicyFetchResult:
+    """Resolve one policy source and its inheritance chain."""
     local_override = bool(policy_override and _expand_policy_path(policy_override).is_file())
     if cache_only and not local_override and not policy_cache_available(project_root):
         if expected_hash is not None:
