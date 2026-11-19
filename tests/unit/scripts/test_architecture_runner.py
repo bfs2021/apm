@@ -632,6 +632,7 @@ install-deployment-bundle-native-layout
 install-deployment-base-integrator
 install-deployment-cleanup-ownership-release
 install-deployment-cached-claude-skill-metadata
+install-deployment-claude-agents-md-routing
 install-deployment-codex-agent-link-resolution
 install-deployment-agent-render-then-adopt
 install-deployment-consumer-manifest-rewrite

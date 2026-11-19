@@ -33,6 +33,10 @@ from scripts.architecture_linter.checks.install_bundle_compile_staging import (
 from scripts.architecture_linter.checks.install_bundle_compile_staging import (
     check_bundle_compile_staging,
 )
+from scripts.architecture_linter.checks.install_claude_agents_md_routing import (
+    GUARD_CLAUDE_AGENTS_MD_ROUTING,
+    check_claude_agents_md_routing,
+)
 from scripts.architecture_linter.checks.install_codex_agent_links import (
     GUARD_CODEX_AGENT_LINKS,
     check_codex_agent_link_resolution,
@@ -317,6 +321,11 @@ RULES: tuple[Rule, ...] = (
         GUARD_CODEX_AGENT_LINKS,
         "Codex agent bodies are rewritten by BaseIntegrator.resolve_links before serialization.",
         check_codex_agent_link_resolution,
+    ),
+    _rule(
+        GUARD_CLAUDE_AGENTS_MD_ROUTING,
+        "Claude AGENTS.md instruction routing is decided once and consumed by install and compile.",
+        check_claude_agents_md_routing,
     ),
     _rule(
         GUARD_AGENT_RENDER_ADOPT,

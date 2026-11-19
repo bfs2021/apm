@@ -214,11 +214,11 @@ print("ordinary Markdown")
     @pytest.mark.parametrize(
         ("target", "deployed_path", "scope_marker"),
         [
-            ("claude", ".claude/rules/test-skill.md", '  - "src/**"'),
-            ("cursor", ".cursor/rules/test-skill.mdc", "globs: src/**"),
-            ("windsurf", ".windsurf/rules/test-skill.md", 'globs: "src/**"'),
-            ("kiro", ".kiro/steering/test-skill.md", 'fileMatchPattern: "src/**"'),
-            ("antigravity", ".agents/rules/test-skill.md", 'globs: "src/**"'),
+            ("claude", ".claude/rules/test-skill.md", '  - "src/**/*.py"'),
+            ("cursor", ".cursor/rules/test-skill.mdc", "globs: src/**/*.py"),
+            ("windsurf", ".windsurf/rules/test-skill.md", 'globs: "src/**/*.py"'),
+            ("kiro", ".kiro/steering/test-skill.md", 'fileMatchPattern: "src/**/*.py"'),
+            ("antigravity", ".agents/rules/test-skill.md", 'globs: "src/**/*.py"'),
         ],
     )
     def test_install_four_hyphen_frontmatter_preserves_scope_across_targets(
@@ -240,7 +240,7 @@ print("ordinary Markdown")
             / "test-skill.instructions.md"
         )
         source.write_text(
-            "----\napplyTo: src/**\n----\n# Scoped rule\n",
+            "----\napplyTo: src/**/*.py\n----\n# Scoped rule\n",
             encoding="utf-8",
         )
 
@@ -282,7 +282,7 @@ print("ordinary Markdown")
             / "test-skill.instructions.md"
         )
         source.write_text(
-            "----\napplyTo: src/**\n----\n# Scoped rule\n",
+            "----\napplyTo: src/**/*.py\n----\n# Scoped rule\n",
             encoding="utf-8",
         )
 
@@ -821,7 +821,11 @@ class TestRootProjectPrimitives:
     """
 
     def _make_project(self, tmp_path, *, apm_deps=None):
-        """Return a project root with .apm/instructions/ and optional deps."""
+        """Return a project root with .apm/instructions/ and optional deps.
+
+        Instructions are path-scoped: Claude loads ``**`` ones from compiled
+        AGENTS.md instead of ``.claude/rules/`` (#3939).
+        """
         project = tmp_path / "project"
         project.mkdir()
 
@@ -839,7 +843,7 @@ class TestRootProjectPrimitives:
         instructions_dir = project / ".apm" / "instructions"
         instructions_dir.mkdir(parents=True)
         (instructions_dir / "local-rules.instructions.md").write_text(
-            "---\napplyTo: '**'\n---\n# Local Rules\nFollow these local rules."
+            "---\napplyTo: '**/*.md'\n---\n# Local Rules\nFollow these local rules."
         )
 
         # Create .claude/rules/ so claude target is auto-detected
@@ -890,7 +894,7 @@ class TestRootProjectPrimitives:
         ext_instr = ext_pkg / ".apm" / "instructions"
         ext_instr.mkdir(parents=True)
         (ext_instr / "ext-rules.instructions.md").write_text(
-            "---\napplyTo: '**'\n---\n# External Rules\nFrom external package."
+            "---\napplyTo: '**/*.md'\n---\n# External Rules\nFrom external package."
         )
 
         project = self._make_project(tmp_path, apm_deps=["../ext-pkg"])
@@ -931,7 +935,7 @@ class TestRootProjectPrimitives:
         agent_instr = agent_dir / ".apm" / "instructions"
         agent_instr.mkdir(parents=True)
         (agent_instr / "agent-rules.instructions.md").write_text(
-            "---\napplyTo: '**'\n---\n# Agent Rules\nFrom sub-package stub."
+            "---\napplyTo: '**/*.md'\n---\n# Agent Rules\nFrom sub-package stub."
         )
 
         (project / "apm.yml").write_text(

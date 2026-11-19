@@ -208,7 +208,8 @@ def test_warm_frozen_with_kept_skill_edit_fails_closed(
 @pytest.mark.parametrize(
     "relative",
     [
-        ".claude/rules/global.md",
+        # Path-scoped: always-on instructions load from AGENTS.md since #3939.
+        ".claude/rules/py.md",
         ".claude/agents/rev.md",
         ".claude/commands/hello.md",
         ".claude/skills/helper/SKILL.md",
@@ -256,7 +257,7 @@ def test_frozen_fails_when_locked_file_is_replaced_by_a_symlink(
     scenario = Scenario.create(tmp_path, apm_binary_path)
     sha, env = _published(scenario)
     project = _project(scenario, sha, env, ["claude"])
-    relative = ".claude/rules/global.md"
+    relative = ".claude/rules/py.md"
     deployed = project / relative
     outside = tmp_path / "outside.md"
     outside.write_bytes(deployed.read_bytes())

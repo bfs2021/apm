@@ -363,6 +363,13 @@
       "owner": "install/local_bundle_hook_trust.py (deployed_bundle_hook_keys, unadmitted_bundle_hooks, retire_unadmitted_bundle_hooks, reconcile_scope_bundle_hooks); the approval record is written and read only by integration/hook_ownership.py (local_bundle_hook_source_marker, parse_local_bundle_hook_source); retirement goes through HookIntegrator.retire_local_bundle_hooks; consumers: commands/install.py, commands/update.py, commands/prune.py, policy/ci_checks.py",
       "selectors": ["src/apm_cli/install/local_bundle_hook_trust.py"],
       "guards": ["install-deployment-local-bundle-hook-trust"]
+    },
+    {
+      "id": "claude-agents-md-instruction-routing",
+      "decision": "Which Claude project instructions load from AGENTS.md instead of .claude/rules/, and which hand-authored root files block that route (#3939)",
+      "owner": "compilation/claude_agents_md.py (routes_to_agents_md, claude_agents_md_blocker); consumers: InstructionIntegrator._claude_rule_sources at install, AgentsCompiler._compile_agents_md (without_claude_rule_instructions) and AgentsCompiler._compile_claude_md (ClaudeFormatter.format_agents_md_imports) at compile",
+      "selectors": ["src/apm_cli/compilation/claude_agents_md.py", "src/apm_cli/compilation/claude_formatter.py"],
+      "guards": ["install-deployment-claude-agents-md-routing"]
     }
   ]
 }

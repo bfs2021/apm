@@ -508,8 +508,8 @@ class TestHintProjectCompileNeeded:
             symbol="info",
         )
 
-    def test_hint_not_fired_for_claude_target(self, tmp_path):
-        """Claude receives dependency instructions directly in .claude/rules."""
+    def test_hint_fired_for_claude_target(self, tmp_path):
+        """Claude loads always-on dependency instructions from compiled AGENTS.md."""
         from apm_cli.install.phases.finalize import _hint_project_compile_needed
 
         instr = tmp_path / "apm_modules" / "pkg" / ".apm" / "instructions"
@@ -518,6 +518,39 @@ class TestHintProjectCompileNeeded:
         ctx = _make_install_context(targets=[_make_target("Claude Code", "claude")])
         ctx.apm_modules_dir = tmp_path / "apm_modules"
         ctx.project_root = tmp_path
+
+        _hint_project_compile_needed(ctx)
+
+        ctx.logger.info.assert_called_once()
+        assert "AGENTS.md / CLAUDE.md" in ctx.logger.info.call_args.args[0]
+
+    @pytest.mark.parametrize("installed_count", [0, 1])
+    def test_hint_fired_for_local_claude_instructions_routed_to_agents_md(
+        self, tmp_path, installed_count
+    ):
+        """Local .apm/ instructions that left .claude/rules/ need compile too (#3939)."""
+        from apm_cli.install.phases.finalize import _hint_project_compile_needed
+
+        ctx = _make_install_context(targets=[_make_target("Claude Code", "claude")])
+        ctx.installed_count = installed_count
+        ctx.apm_modules_dir = tmp_path / "apm_modules"
+        ctx.project_root = tmp_path
+        ctx.integrators = {
+            "instruction": SimpleNamespace(agents_md_stale={"style.instructions.md"})
+        }
+
+        _hint_project_compile_needed(ctx)
+
+        ctx.logger.info.assert_called_once()
+        assert "Run 'apm compile'" in ctx.logger.info.call_args.args[0]
+
+    def test_hint_not_fired_when_nothing_routed_and_no_dependency_instructions(self, tmp_path):
+        from apm_cli.install.phases.finalize import _hint_project_compile_needed
+
+        ctx = _make_install_context(targets=[_make_target("Claude Code", "claude")])
+        ctx.apm_modules_dir = tmp_path / "apm_modules"
+        ctx.project_root = tmp_path
+        ctx.integrators = {"instruction": SimpleNamespace(agents_md_stale=set())}
 
         _hint_project_compile_needed(ctx)
 
