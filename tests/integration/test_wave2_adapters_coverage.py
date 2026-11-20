@@ -130,6 +130,12 @@ from apm_cli.utils.reflink import (
 # ===========================================================================
 
 
+def _anonymous(url: str):
+    from apm_cli.core.catalog_credentials import anonymous_catalog_credential
+
+    return anonymous_catalog_credential("catalog", url, bound=False)
+
+
 class TestBaseAdapterHelpers:
     """Tests for module-level helpers in adapters/client/base.py."""
 
@@ -1962,7 +1968,10 @@ class TestMarketplaceClientLocalFetch:
         from apm_cli.marketplace.client import _fetch_url_direct
 
         with pytest.raises(MarketplaceFetchError, match="HTTPS"):
-            _fetch_url_direct("http://insecure.example.com/marketplace.json")
+            _fetch_url_direct(
+                "http://insecure.example.com/marketplace.json",
+                credential=_anonymous("http://insecure.example.com/marketplace.json"),
+            )
 
     def test_fetch_url_direct_with_mocked_response(self, tmp_path: Path) -> None:
         """_fetch_url_direct parses JSON from mocked HTTP response."""
@@ -1977,7 +1986,10 @@ class TestMarketplaceClientLocalFetch:
         mock_resp.close = MagicMock()
 
         with patch("apm_cli.marketplace.client._http_get", return_value=mock_resp):
-            result = _fetch_url_direct("https://cdn.example.com/marketplace.json")
+            result = _fetch_url_direct(
+                "https://cdn.example.com/marketplace.json",
+                credential=_anonymous("https://cdn.example.com/marketplace.json"),
+            )
         assert result is not None
         assert result.data["name"] == "remote-market"
         assert result.etag == '"v1"'
@@ -1993,7 +2005,10 @@ class TestMarketplaceClientLocalFetch:
 
         with patch("apm_cli.marketplace.client._http_get", return_value=mock_resp):
             with pytest.raises(MarketplaceFetchError, match="404"):
-                _fetch_url_direct("https://cdn.example.com/marketplace.json")
+                _fetch_url_direct(
+                    "https://cdn.example.com/marketplace.json",
+                    credential=_anonymous("https://cdn.example.com/marketplace.json"),
+                )
 
     def test_fetch_url_direct_304_returns_none(self) -> None:
         """_fetch_url_direct returns None on 304 Not Modified."""
@@ -2005,7 +2020,10 @@ class TestMarketplaceClientLocalFetch:
         mock_resp.close = MagicMock()
 
         with patch("apm_cli.marketplace.client._http_get", return_value=mock_resp):
-            result = _fetch_url_direct("https://cdn.example.com/marketplace.json")
+            result = _fetch_url_direct(
+                "https://cdn.example.com/marketplace.json",
+                credential=_anonymous("https://cdn.example.com/marketplace.json"),
+            )
         assert result is None
 
 
@@ -3183,6 +3201,7 @@ class TestMarketplaceClientHTTP:
             with pytest.raises(MarketplaceFetchError, match="digest mismatch"):
                 _fetch_url_direct(
                     "https://cdn.example.com/marketplace.json",
+                    credential=_anonymous("https://cdn.example.com/marketplace.json"),
                     expected_digest="sha256:wrongdigest",
                 )
 
@@ -3201,7 +3220,10 @@ class TestMarketplaceClientHTTP:
 
         with patch("apm_cli.marketplace.client._http_get", return_value=mock_resp):
             with pytest.raises(MarketplaceFetchError, match="root must be an object"):
-                _fetch_url_direct("https://cdn.example.com/marketplace.json")
+                _fetch_url_direct(
+                    "https://cdn.example.com/marketplace.json",
+                    credential=_anonymous("https://cdn.example.com/marketplace.json"),
+                )
 
 
 # ===========================================================================

@@ -185,6 +185,10 @@ class MarketplaceSource:
     # ``manifest`` (the user manifest ``marketplaces:`` list, reconciled by
     # ``apm install -g``). Ownership metadata, not part of source identity.
     origin: str = field(default=ORIGIN_MANUAL, compare=False)
+    # True only when the user bound this name to a hosted catalog URL with
+    # ``apm marketplace add URL --name NAME``: the ``APM_MARKETPLACE_*_<NAME>``
+    # credential may then be sent to that URL (see marketplace/catalog_binding.py).
+    credential_bound: bool = field(default=False, compare=False)
 
     def __post_init__(self) -> None:
         if self.origin not in MARKETPLACE_ORIGINS:
@@ -192,6 +196,8 @@ class MarketplaceSource:
                 f"Invalid marketplace origin {self.origin!r}; "
                 f"expected one of: {', '.join(MARKETPLACE_ORIGINS)}"
             )
+        if self.credential_bound is not True:
+            object.__setattr__(self, "credential_bound", False)
         # Reconcile ref / branch: ref is canonical. If only branch was set, copy it onto ref.
         if self.branch and self.branch != "main" and (not self.ref or self.ref == "main"):
             object.__setattr__(self, "ref", self.branch)
@@ -232,6 +238,9 @@ class MarketplaceSource:
                 object.__setattr__(self, "repo", r)
         if identity is not None and self.path != "" and self.host == "github.com" and identity.host:
             object.__setattr__(self, "host", identity.host)
+        # Only a hosted catalog URL can carry a credential binding.
+        if self.credential_bound and not self.is_remote_manifest_url:
+            object.__setattr__(self, "credential_bound", False)
 
     # -- derived properties --------------------------------------------------
 
@@ -329,6 +338,8 @@ class MarketplaceSource:
         # Absent means manual so pre-existing registries stay byte-identical.
         if self.origin != ORIGIN_MANUAL:
             result["origin"] = self.origin
+        if self.credential_bound:
+            result["credential_bound"] = True
         return result
 
     @classmethod
@@ -356,6 +367,7 @@ class MarketplaceSource:
             host=data.get("host", "github.com"),
             branch=data.get("branch", ""),
             origin=origin,
+            credential_bound=data.get("credential_bound") is True,
         )
 
 

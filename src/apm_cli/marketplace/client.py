@@ -13,7 +13,10 @@ Dispatches over a ``_FETCHERS`` table keyed by ``source.kind``:
 - ``local`` -> bare repo (``git --git-dir=... show <ref>:<file>``), working
   directory, or direct manifest file (path-containment guard); no cache.
 - ``url`` -> direct hosted ``marketplace.json`` over HTTPS with digest and
-  ETag/Last-Modified cache metadata.
+  ETag/Last-Modified cache metadata. A catalog bound by name sends only its
+  ``APM_MARKETPLACE_*`` credential (``catalog_binding.catalog_credential``),
+  never ambient ``.netrc``; a 401/403 or sign-in redirect raises
+  :class:`MarketplaceAccessDeniedError` and is never served from cache.
 
 When ``PROXY_REGISTRY_URL`` is set, GitHub/GHES fetches go through the
 Artifactory Archive Entry Download proxy first. Cache lives at
@@ -34,6 +37,7 @@ import time
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 from urllib.parse import quote, urlsplit
 
 import requests
@@ -45,6 +49,7 @@ from ..utils.http_credentials import (
     origin_root,
 )
 from .errors import (
+    MarketplaceAuthError,
     MarketplaceError,
     MarketplaceFetchError,
     MarketplaceFreshnessError,
@@ -58,6 +63,9 @@ from .models import (
     parse_marketplace_json,
 )
 from .registry import get_registered_marketplaces
+
+if TYPE_CHECKING:
+    from ..core.catalog_credentials import CatalogCredential
 
 logger = logging.getLogger(__name__)
 
@@ -245,14 +253,15 @@ def _http_get(
     *,
     headers: dict[str, str] | None = None,
     follow_cross_origin_without_credentials: bool = True,
+    base_url: str | None = None,
     **kwargs: object,
 ):
     """Issue HTTP GET through a shared session without persisting cookies.
 
     Redirects follow the shared origin-bounded owner: credentials are re-sent
-    only within the request's origin, and by default a hop to another HTTPS
-    origin is followed without any credential header. Callers whose redirects
-    carry an auth signal (Azure DevOps sign-in) pass
+    only within *base_url* (default: the request's origin), and by default a
+    hop outside it is followed over HTTPS without any credential header.
+    Callers whose redirects carry an auth signal (Azure DevOps sign-in) pass
     ``follow_cross_origin_without_credentials=False`` to get the refusal.
     """
     cookies = getattr(_HTTP_SESSION, "cookies", None)
@@ -262,7 +271,7 @@ def _http_get(
         _HTTP_SESSION,
         "GET",
         url,
-        base_url=origin_root(url),
+        base_url=base_url or origin_root(url),
         headers=headers,
         follow_cross_origin_without_credentials=follow_cross_origin_without_credentials,
         **kwargs,
@@ -321,14 +330,22 @@ def _read_capped_json(resp, label: str) -> dict:
 def _fetch_url_direct(
     url: str,
     *,
+    credential: "CatalogCredential",
     etag: str = "",
     last_modified: str = "",
     expected_digest: str = "",
 ) -> FetchResult | None:
     """Fetch a remote marketplace.json URL over HTTPS.
 
+    *credential* (required) is the catalog's credential decision. Its header
+    is sent only within its bound scope, re-checked on every redirect hop;
+    hops outside it continue anonymously. Ambient ``.netrc`` credentials are
+    never used, even for anonymous catalogs.
+
     Returns ``None`` for HTTP 304 so callers can serve cached data.
     """
+    from .catalog_binding import access_denied_error
+
     parsed = urlsplit(url)
     if parsed.scheme.lower() != "https":
         raise MarketplaceFetchError(url, "remote marketplace.json URLs must use HTTPS")
@@ -338,14 +355,26 @@ def _fetch_url_direct(
         headers["If-None-Match"] = etag
     if last_modified:
         headers["If-Modified-Since"] = last_modified
+    headers.update(credential.headers())
 
     resp = None
     try:
-        resp = _http_get(url, headers=headers, timeout=30, stream=True)
+        resp = _http_get(
+            url,
+            headers=headers,
+            base_url=credential.scope_url if credential.presented else None,
+            bind_query=credential.presented,
+            ambient_credentials=False,
+            timeout=30,
+            stream=True,
+        )
     except requests.exceptions.RequestException as exc:
         raise MarketplaceFetchError(url, str(exc)) from exc
 
     try:
+        denied = access_denied_error(credential, resp)
+        if denied is not None:
+            raise denied
         if resp.status_code == 304:
             return None
         if resp.status_code == 404:
@@ -1307,9 +1336,12 @@ def fetch_marketplace(
     # Fetch from source
     try:
         if source.kind == "url":
+            from .catalog_binding import catalog_credential
+
             stale_meta = _read_stale_meta(cache_name) or {}
             result = _fetch_url_direct(
                 source.url,
+                credential=catalog_credential(source),
                 etag=stale_meta.get("etag", ""),
                 last_modified=stale_meta.get("last_modified", ""),
             )
@@ -1370,6 +1402,10 @@ def fetch_marketplace(
             _write_cache(cache_name, data)
         return manifest
     except MarketplaceFetchError as exc:
+        if isinstance(exc, MarketplaceAuthError):
+            # Denied access is never a cached read or a freshness retry; the
+            # last valid cache stays on disk untouched.
+            raise
         if strict:
             raise MarketplaceFreshnessError(source.name, exc.reason or str(exc)) from exc
         # Stale-while-revalidate (API kinds only): serve expired cache on network error

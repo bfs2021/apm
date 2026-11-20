@@ -131,11 +131,13 @@ def probe_registration(
     is_direct_url: bool,
     offline: bool = False,
     explicit_path: str | None = None,
+    credential_bound: bool = False,
 ) -> tuple[MarketplaceSource, MarketplaceManifest]:
     """Locate and fetch the marketplace manifest behind a parsed source.
 
     Returns the source to register (with the detected manifest path) and
-    the fetched manifest.
+    the fetched manifest. *credential_bound* binds *name* to a hosted
+    catalog URL for this first fetch only; nothing is persisted here.
 
     Raises:
         MarketplaceManifestNotFoundError: No manifest at any probed path.
@@ -151,6 +153,7 @@ def probe_registration(
         url=url,
         ref=effective_ref,
         path="" if is_direct_url else "marketplace.json",
+        credential_bound=credential_bound,
     )
     if is_direct_url or local_source_points_to_file(probe_source):
         if explicit_path is not None:
@@ -177,7 +180,13 @@ def probe_registration(
             probe_source.display_source, local=probe_source.kind == "local"
         )
 
-    fetch_source = MarketplaceSource(name=name, url=url, ref=effective_ref, path=detected_path)
+    fetch_source = MarketplaceSource(
+        name=name,
+        url=url,
+        ref=effective_ref,
+        path=detected_path,
+        credential_bound=credential_bound,
+    )
     manifest = client.fetch_marketplace(
         fetch_source,
         force_refresh=True,
