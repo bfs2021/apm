@@ -258,6 +258,14 @@ def without_claude_rule_instructions(primitives, base_dir: Path, warn_fn):
     return filtered
 
 
+def claude_agents_md_blocker_warning(blocker: str) -> str:
+    """Return the one warning install prints when a blocker keeps the legacy layout."""
+    return (
+        f"{blocker}, then rerun 'apm install' and 'apm compile'. Until then, "
+        "always-on and directory instructions stay in .claude/rules/."
+    )
+
+
 def pin_directory_placements(placement_map: dict, base_dir: Path, warn_fn) -> dict:
     """Place each directory instruction in exactly ``<dir>/AGENTS.md``.
 

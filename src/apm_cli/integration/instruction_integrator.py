@@ -529,6 +529,7 @@ class InstructionIntegrator(BaseIntegrator):
         """
         from apm_cli.compilation.claude_agents_md import (
             claude_agents_md_blocker,
+            claude_agents_md_blocker_warning,
             compiled_agents_md_has,
             routes_to_agents_md,
         )
@@ -558,10 +559,7 @@ class InstructionIntegrator(BaseIntegrator):
         if blocker is not None:
             if diagnostics is not None and live_root not in self._claude_blocker_warned:
                 self._claude_blocker_warned.add(live_root)
-                diagnostics.warn(
-                    f"{blocker}, then rerun 'apm install' and 'apm compile'. Until then, "
-                    "always-on and directory instructions stay in .claude/rules/."
-                )
+                diagnostics.warn(claude_agents_md_blocker_warning(blocker))
             return instruction_files
         self.agents_md_routed.update(source.name for source in routed)
         for source in routed:
