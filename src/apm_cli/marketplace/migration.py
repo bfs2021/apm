@@ -26,6 +26,7 @@ from pathlib import Path
 
 import yaml
 
+from ..core.deprecations import deprecation_message
 from .errors import MarketplaceYmlError
 from .yml_schema import (
     MarketplaceConfig,
@@ -42,10 +43,7 @@ __all__ = [
 ]
 
 
-DEPRECATION_MESSAGE = (
-    "marketplace.yml is deprecated. Run 'apm marketplace migrate' to "
-    "fold it into apm.yml's 'marketplace:' block."
-)
+DEPRECATION_MESSAGE = deprecation_message("marketplace-yml")
 
 
 logger = logging.getLogger(__name__)

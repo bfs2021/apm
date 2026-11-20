@@ -46,12 +46,16 @@
     {
       "id": "user-facing-output-diagnostics",
       "decision": "User-facing output / diagnostics",
-      "owner": "CommandLogger / console owner",
+      "owner": "CommandLogger / console owner; core/deprecations.py owns deprecation warning text",
       "selectors": [
         "src/apm_cli/core/command_logger.py",
+        "src/apm_cli/core/deprecations.py",
         "src/apm_cli/utils/console.py"
       ],
-      "guards": ["registry-delegation-output-diagnostics"]
+      "guards": [
+        "registry-delegation-output-diagnostics",
+        "registry-delegation-deprecation-catalog"
+      ]
     },
     {
       "id": "compiled-output-writes",

@@ -17,6 +17,7 @@ from ..core.build_orchestrator import (
     OutputKind,
 )
 from ..core.command_logger import CommandLogger
+from ..core.deprecations import deprecation_message
 from ..core.target_detection import TargetParamType
 
 MARKETPLACE_DOCS_URL = (
@@ -398,11 +399,7 @@ def pack_cmd(  # noqa: C901, PLR0912, PLR0913 -- Click handler, one param per CL
         except Exception:
             effective_target = None
     else:
-        logger.warning(
-            "--target is deprecated and will be removed in a future release. "
-            "Bundles are target-agnostic; the value is recorded as informational "
-            "pack.target metadata only and is ignored by 'apm install'."
-        )
+        logger.warning(deprecation_message("pack-target"))
         effective_target = target
     options = BuildOptions(
         project_root=project_root,
@@ -949,10 +946,7 @@ def _render_marketplace_catalog(logger, written: list[tuple[str | None, Path]]) 
 def unpack_cmd(ctx, bundle_path, output, skip_verify, dry_run, force, verbose):
     """Extract an APM bundle into the project."""
     logger = CommandLogger("unpack", verbose=verbose, dry_run=dry_run)
-    logger.warning(
-        "'apm unpack' is deprecated and will be removed in a future release. "
-        "Repack with the default plugin format and use 'apm install <bundle-path>'.",
-    )
+    logger.warning(deprecation_message("unpack"))
     try:
         logger.start(f"Unpacking {bundle_path} -> {output}")
 

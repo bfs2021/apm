@@ -2328,6 +2328,18 @@ MUTATIONS: tuple[MutationCase, ...] = (
         intent="Compilation gains a direct write that bypasses CompiledOutputWriter.",
     ),
     MutationCase(
+        guard_id="registry-delegation-deprecation-catalog",
+        rule_id="registry_delegation.deprecation_catalog",
+        path="src/apm_cli/commands/pack.py",
+        old='logger.warning(deprecation_message("unpack"))',
+        new=(
+            "logger.warning(\"'apm unpack' is deprecated and will be removed in a future "
+            "release. Repack with the default plugin format and use "
+            "'apm install <bundle-path>'.\")"
+        ),
+        intent="A command re-spells a deprecation warning instead of reading the catalog.",
+    ),
+    MutationCase(
         guard_id="registry-delegation-harness-user-root-resolution",
         rule_id="registry_delegation.harness_user_root_resolution",
         path="src/apm_cli/integration/lsp_integrator.py",

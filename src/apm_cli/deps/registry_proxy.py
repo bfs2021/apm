@@ -41,6 +41,8 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 from urllib.parse import urlparse
 
+from apm_cli.core.deprecations import deprecation_message
+
 if TYPE_CHECKING:
     from apm_cli.deps.lockfile import LockedDependency
 
@@ -128,7 +130,7 @@ class RegistryConfig:
             art_url = os.environ.get("ARTIFACTORY_BASE_URL", "").strip().rstrip("/")
             if art_url:
                 warnings.warn(
-                    "ARTIFACTORY_BASE_URL is deprecated; use PROXY_REGISTRY_URL instead.",
+                    deprecation_message("artifactory-base-url"),
                     DeprecationWarning,
                     stacklevel=2,
                 )
@@ -308,7 +310,7 @@ def _read_deprecated_token() -> str | None:
     token = os.environ.get("ARTIFACTORY_APM_TOKEN")
     if token:
         warnings.warn(
-            "ARTIFACTORY_APM_TOKEN is deprecated; use PROXY_REGISTRY_TOKEN instead.",
+            deprecation_message("artifactory-apm-token"),
             DeprecationWarning,
             stacklevel=3,
         )
@@ -319,7 +321,7 @@ def _read_deprecated_enforce_only() -> str:
     val = os.environ.get("ARTIFACTORY_ONLY", "")
     if val:
         warnings.warn(
-            "ARTIFACTORY_ONLY is deprecated; use PROXY_REGISTRY_ONLY instead.",
+            deprecation_message("artifactory-only"),
             DeprecationWarning,
             stacklevel=3,
         )

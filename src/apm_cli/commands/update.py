@@ -64,6 +64,7 @@ import click
 
 from ..core.auth import AuthResolver
 from ..core.command_logger import InstallLogger
+from ..core.deprecations import deprecation_message
 from ..core.target_catalog import target_help_fragment
 from ..core.target_detection import TargetParamType
 from ..deps.github_downloader import GitHubPackageDownloader
@@ -598,11 +599,7 @@ def update(
                     "(no apm.yml found). Use 'apm self-update' directly.",
                     symbol="warning",
                 )
-            _rich_warning(
-                "'apm update' refreshes APM dependencies. To update the CLI binary, "
-                "use 'apm self-update'. Forwarding for back-compat (deprecated).",
-                symbol="warning",
-            )
+            _rich_warning(deprecation_message("update-self-updater"), symbol="warning")
             ctx.invoke(_self_update_cmd, check=check_only)
             return
 
@@ -615,13 +612,7 @@ def update(
                     "Use 'apm update --dry-run' to preview dependency changes.",
                     symbol="warning",
                 )
-            _rich_warning(
-                "'apm update --check' is the deprecated self-updater shim. "
-                "Use 'apm update --dry-run' to preview dependency changes, "
-                "or 'apm self-update --check' to check for a new CLI binary. "
-                "Forwarding for back-compat (deprecated).",
-                symbol="warning",
-            )
+            _rich_warning(deprecation_message("update-check"), symbol="warning")
             ctx.invoke(_self_update_cmd, check=True)
             return
 
