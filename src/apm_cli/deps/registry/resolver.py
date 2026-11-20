@@ -14,6 +14,7 @@ that returns a ``PackageInfo``. Wiring into the install pipeline is done in
 
 from __future__ import annotations
 
+import hashlib
 import shutil
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -26,13 +27,14 @@ from ...bundle.local_bundle import route_agent_plugin_package
 from ...models.apm_package import PackageInfo, validate_apm_package
 from ...models.dependency.reference import DependencyReference
 from ...models.dependency.types import GitReferenceType, ResolvedReference
+from ...utils.console import _rich_info
 from .auth import (
     RegistryAuthContext,
     make_auth_context,
     remediation_message,
 )
 from .client import RegistryClient, RegistryError, VersionEntry
-from .extractor import extract_archive
+from .extractor import HashMismatchError, extract_archive, verify_sha256
 from .semver import is_semver_range, pick_best
 
 
@@ -154,6 +156,39 @@ def _package_info_from_extracted_registry_tree(
         package_type=validation_result.package_type,
     )
     return package_info, reg_resolution
+
+
+def _verify_mirrored_archive(
+    dep_ref: DependencyReference,
+    version: str,
+    archive_bytes: bytes,
+    resolved_hash: str,
+    locked_url: str,
+    configured_url: str,
+) -> None:
+    """Accept bytes from a configured registry other than the locked URL (req-rs-009).
+
+    Runs before the install target is touched, so a mismatch leaves nothing
+    extracted (req-lk-013).
+    """
+    try:
+        verify_sha256(archive_bytes, resolved_hash)
+    except HashMismatchError as exc:
+        actual = hashlib.sha256(archive_bytes).hexdigest()
+        raise RegistryResolutionError(
+            f"registry archive for {dep_ref.repo_url!r} {version} from the configured "
+            f"registry does not match the lockfile; nothing was extracted.\n"
+            f"  locked URL:     {locked_url}\n"
+            f"  configured URL: {configured_url}\n"
+            f"  expected hash:  {resolved_hash}\n"
+            f"  actual hash:    sha256:{actual}"
+        ) from exc
+    _rich_info(
+        f"{dep_ref.repo_url} {version}: fetched from configured registry "
+        f"{configured_url} instead of lockfile URL {locked_url}; locked hash verified",
+        symbol="info",
+        soft_wrap=True,
+    )
 
 
 class RegistryPackageResolver:
@@ -363,30 +398,36 @@ class RegistryPackageResolver:
         resolved_hash: str,
         version: str,
     ) -> PackageInfo:
-        """Fetch from the locked URL and verify against the locked hash.
+        """Fetch the locked version and verify it against the locked hash.
 
         This is the npm-install-model lockfile replay path: instead of calling
-        ``/versions`` to re-negotiate the best semver match, we fetch directly
-        from ``resolved_url`` (recorded in the lockfile) and re-verify the
-        bytes against ``resolved_hash``.  Called by ``apm install`` when the
-        lockfile has full replay data and the manifest range still covers the
-        locked version.  ``apm update`` bypasses this path entirely via
-        ``update_refs=True``.
+        ``/versions`` to re-negotiate the best semver match, we fetch the
+        locked version and re-verify the bytes against ``resolved_hash``.
+        Called by ``apm install`` when the lockfile has full replay data and
+        the manifest range still covers the locked version.  ``apm update``
+        bypasses this path entirely via ``update_refs=True``.
+
+        The locked ``resolved_url`` is advisory (OpenAPM req-rs-009): bytes
+        always come from the archive URL of the dependency's configured
+        registry, so credentials only reach a host the user configured. When
+        that URL differs from the locked one (a moved endpoint or a mirror),
+        the bytes must hash to ``resolved_hash`` before anything is extracted
+        (req-lk-013); the lockfile keeps its recorded URL and hash.
         """
         registry_name = dep_ref.registry_name
         base_url = self._resolve_registry_url(registry_name)
         client = self._build_client(registry_name, base_url)
         owner, repo = split_registry_identity(dep_ref.repo_url)
-        expected_url = client.archive_url(owner, repo, version)
-        if resolved_url != expected_url:
-            raise RegistryResolutionError(
-                "lockfile registry URL does not match the configured registry endpoint"
-            )
+        configured_url = client.archive_url(owner, repo, version)
         try:
-            archive_bytes, content_type = client.fetch_from_url(resolved_url)
+            archive_bytes, content_type = client.fetch_from_url(configured_url)
         except RegistryError as exc:
-            self._raise_for_http(exc, dep_ref, resolved_url)
+            self._raise_for_http(exc, dep_ref, configured_url)
             raise  # unreachable; appeases type checker
+        if resolved_url != configured_url:
+            _verify_mirrored_archive(
+                dep_ref, version, archive_bytes, resolved_hash, resolved_url, configured_url
+            )
 
         _clear_install_target(target_path)
         actual_hash = extract_archive(
