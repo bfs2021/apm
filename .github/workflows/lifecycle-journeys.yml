@@ -37,7 +37,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, windows-latest, macos-latest]
+        os: [windows-latest]
     defaults:
       run:
         shell: bash
@@ -63,10 +63,11 @@ jobs:
       - name: Run every lifecycle journey
         run: |
           uv run --frozen --extra dev python -m pytest -p no:cacheprovider -q --strict-markers \
-            -n 2 --durations=10 -m "not live" tests/lifecycle/journeys/test_journeys.py
+            -n 0 -rA --runxfail -m "not live" -k J07 tests/lifecycle/journeys/test_journeys.py
 
   lifecycle-full:
     name: Lifecycle Full Suite (Linux)
+    if: false
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:

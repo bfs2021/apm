@@ -342,6 +342,10 @@ class GitReferenceResolver:
             if not include_heads:
                 validate_ls_remote_tag_output(outcome[1])
             refs = host._parse_ls_remote_output(outcome[1])
+            import os as _diag_os, sys as _diag_sys
+            if _diag_os.name == "nt":  # J07 DIAGNOSTIC, never merged
+                _diag_sys.stderr.write("J07-DIAG ls-remote " + repr(outcome[1]) + "\n")
+                _diag_sys.stderr.write("J07-DIAG parsed " + repr([(r.name, r.commit_sha[:8], r.annotated) for r in refs]) + "\n")
             return host._sort_remote_refs(refs)
 
         e = outcome[1]
