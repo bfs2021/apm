@@ -121,6 +121,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `apm audit --ci` applies org MCP policy to every server the lock keeps, including transitive and local-bundle servers, and accepts a `bundle:` server only when the lock records its deployment. (#3989)
 - `apm install -g <bundle>` reads executables approvals from the user manifest (`~/.apm/apm.yml`), never the current directory's `apm.yml`, and its skip hint names that file. (#3989)
 - A cold `apm install` of a locked marketplace package with catalog-defined MCP or LSP servers reads only server metadata from the catalog and keeps the locked commit; if the catalog now selects another commit it fails with an `apm update <name>@<marketplace>` hint instead of re-pinning. (#3989)
+- `apm audit --ci` and `apm install` find the lockfile entry of a required package declared as an explicit registry-proxy URL (`host/artifactory/...`), so a `<proxy-host>/owner/repo` entry in `dependencies.require` passes `required-packages-deployed`. (#4067)
 
 ### Security
 
