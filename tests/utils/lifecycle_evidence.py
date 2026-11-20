@@ -481,10 +481,12 @@ KNOWN_OUTPUT_CELLS: tuple[KnownOutputCell, ...] = (
         _runs("install", "--frozen"),
         r"Parked MCP server .*: executables not approved",
         # A package whose MCP server has unapproved executables gets the same
-        # parked notice twice, at top level or indented in a package block.
+        # parked notice twice, at top level or indented in a package block. A
+        # long package path wraps the notice, so the reason is looked up ahead
+        # of the next status marker and the repeat is keyed on its first line.
         output=(
-            r"^[ \t]*(\[!\] Parked MCP server [^\n]*?: executables not approved[^\n]*)$"
-            r".*^[ \t]*\1$"
+            r"^[ \t]*(?=\[!\] Parked MCP server [^\[]*?executables\s+not\s+approved)"
+            r"(\[!\] Parked MCP server [^\n]*)$.*^[ \t]*\1$"
         ),
     ),
     KnownOutputCell(
