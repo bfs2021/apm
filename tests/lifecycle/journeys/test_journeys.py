@@ -424,7 +424,11 @@ class JourneyRun:
         if world.get("policy"):
             use_policy(self.world, world["policy"])
         for line in world.get("setup") or ():
-            self._execute(line)
+            cmd = self._execute(line)
+            if "release-kit" in line:  # J07 DIAGNOSTIC, never merged
+                raise AssertionError(
+                    f"J07-SETUP {line!r} rc={cmd.result.returncode}\nOUT={cmd.stdout}\nERR={cmd.stderr}"
+                )
 
     def replay(self, other: dict) -> None:
         """Run another journey's steps as setup: exit codes only, no oracles."""
