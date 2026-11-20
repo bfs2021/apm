@@ -113,15 +113,21 @@ def load_marketplace_config(
     *,
     warn_callback=None,
 ) -> MarketplaceConfig:
-    """Smart loader: detect source, load, warn if legacy.
+    """Smart loader: detect source, load, and report every load warning.
+
+    Single owner of config-load warnings (#4046): the legacy
+    ``marketplace.yml`` deprecation and each entry the parser collected in
+    ``MarketplaceConfig.warnings`` (the deprecated list/string form of
+    ``marketplace.outputs``, an ``outputs.<format>.path`` conflict) are each
+    delivered once, in that order, through *warn_callback*.
 
     Parameters
     ----------
     project_root : Path
         Directory holding apm.yml / marketplace.yml.
     warn_callback : callable, optional
-        Invoked with the deprecation message string when a legacy file
-        is loaded.  Defaults to a stdlib ``logging.warning`` call.
+        Invoked once with each warning message string. Defaults to a stdlib
+        ``logging.warning`` call.
 
     Raises
     ------
@@ -129,20 +135,21 @@ def load_marketplace_config(
         When no config is found, or when both files are present, or
         on any validation error from the underlying loaders.
     """
+    report = warn_callback if warn_callback is not None else logger.warning
     source = detect_config_source(project_root)
     if source == ConfigSource.APM_YML:
-        return load_marketplace_from_apm_yml(project_root / "apm.yml")
-    if source == ConfigSource.LEGACY_YML:
-        msg = DEPRECATION_MESSAGE
-        if warn_callback is not None:
-            warn_callback(msg)
-        else:
-            logger.warning(msg)
-        return load_marketplace_from_legacy_yml(project_root / "marketplace.yml")
-    raise MarketplaceYmlError(
-        "No marketplace config found. Add a 'marketplace:' block to "
-        "apm.yml or run 'apm marketplace init' to scaffold one."
-    )
+        config = load_marketplace_from_apm_yml(project_root / "apm.yml")
+    elif source == ConfigSource.LEGACY_YML:
+        report(DEPRECATION_MESSAGE)
+        config = load_marketplace_from_legacy_yml(project_root / "marketplace.yml")
+    else:
+        raise MarketplaceYmlError(
+            "No marketplace config found. Add a 'marketplace:' block to "
+            "apm.yml or run 'apm marketplace init' to scaffold one."
+        )
+    for message in config.warnings:
+        report(message)
+    return config
 
 
 # ---------------------------------------------------------------------------
