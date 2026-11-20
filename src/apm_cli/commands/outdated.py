@@ -306,6 +306,13 @@ def _check_selected_dep(dep, downloader, verbose, registry_ctx=None):
 
     This function is safe to call from a thread pool.
     """
+    import os as _dos, sys as _dsys
+    if _dos.name == "nt":  # J07 DIAGNOSTIC, never merged
+        _dsys.stderr.write(
+            "J07-DIAG dep " + repr((dep.get_unique_key(), dep.source, dep.resolved_ref,
+            dep.resolved_commit, dep.discovered_via, dep.marketplace_plugin_name,
+            dep.registry_prefix, getattr(dep, "replacement", None))) + "\n"
+        )
     if dep.source == "registry":
         from ..deps.registry.outdated import check_registry_locked_dep
 
@@ -351,6 +358,12 @@ def _check_selected_dep(dep, downloader, verbose, registry_ctx=None):
         package_basename=package_basename,
         remote_refs=remote_refs,
     )
+    if _dos.name == "nt":  # J07 DIAGNOSTIC, never merged
+        _dsys.stderr.write(
+            "J07-DIAG pin " + repr((package_name, current_ref, is_full_revision_pin(current_ref),
+            [(r.name, r.commit_sha[:8], r.annotated) for r in remote_refs],
+            revision_pin_row)) + "\n"
+        )
     if revision_pin_row is not None:
         return revision_pin_row
 
