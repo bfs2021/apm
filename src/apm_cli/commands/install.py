@@ -260,7 +260,7 @@ def _resolve_package_references(
 
     valid_outcomes = []  # (canonical, already_present) tuples
     invalid_outcomes = []  # (package, reason) tuples
-    _marketplace_provenance = {}  # canonical -> {discovered_via, marketplace_plugin_name}
+    _marketplace_provenance = {}  # unique key -> {discovered_via, marketplace_plugin_name}
     _apm_yml_entries = {}  # canonical -> apm.yml entry (str or dict for HTTP deps)
     validated_packages = []
     dependencies_changed = False
@@ -471,7 +471,8 @@ def _resolve_package_references(
             if updates_existing_entry and updated_packages_out is not None:
                 updated_packages_out.append(canonical)
             if marketplace_provenance:
-                _marketplace_provenance[identity] = marketplace_provenance
+                # Keyed like the lock and the policy gate (host-qualified on GHE).
+                _marketplace_provenance[dep_ref.get_unique_key()] = marketplace_provenance
         else:
             reason = _local_path_failure_reason(dep_ref) or _ambiguous_subpath_hint(dep_ref)
             if not reason:
