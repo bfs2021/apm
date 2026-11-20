@@ -89,8 +89,7 @@ _OWNER_CONTRACTS: Mapping[str, tuple[str, ...]] = {
     _CLIENT: (
         "credential=catalog_credential(source),",
         "base_url=credential.scope_url if credential.presented else None,",
-        "bind_query=credential.presented,",
-        "ambient_credentials=False,",
+        "bind_query=credential.presented,\n            ambient_credentials=False,",
         "denied = access_denied_error(credential, resp)",
         "if isinstance(exc, MarketplaceAuthError):",
     ),
