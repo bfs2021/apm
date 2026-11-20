@@ -1292,6 +1292,21 @@ class LockFile:
                 return index.get((parts[1], parts[2]))
         return self.dependencies.get(key)
 
+    def get_dependency_for(self, dep_ref: DependencyReference) -> LockedDependency | None:
+        """Return the row :meth:`LockedDependency.from_dependency_ref` wrote for *dep_ref*.
+
+        An explicit proxy URL (``host/artifactory/...``) written without a
+        registry-proxy config keeps its proxy host and no ``registry_prefix``,
+        so its row key is host-qualified while the reference key stays bare.
+        A bare row without ``registry_prefix`` is another package.
+        """
+        row = self.get_dependency(dep_ref.get_unique_key())
+        owner = getattr(dep_ref, "ownership_reference", dep_ref)
+        if not getattr(owner, "artifactory_prefix", None) or (row and row.registry_prefix):
+            return row
+        written = LockedDependency.from_dependency_ref(owner, None, 1, None)
+        return self.get_dependency(written.get_unique_key())
+
     def marketplace_index(self) -> dict[tuple[str, str], LockedDependency | None]:
         """Index recorded discovery labels, with None for ambiguous associations.
 
