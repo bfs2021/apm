@@ -538,6 +538,14 @@ otherwise the version stays. Older lockfiles still verify; `--frozen` and
 `apm audit` never rewrite them. APM 0.36 and earlier refuse version `"4"`:
 update CI to 0.37 before committing.
 
+On replay (`apm install`, `apm install --frozen`), registry deps are
+fetched from the dependency's **configured** registry, never from the
+locked `resolved_url`, and the bytes must match `resolved_hash` before
+extraction. A moved or mirrored registry URL is accepted when the hash
+matches (one `[i]` line names both URLs; the lockfile is unchanged); a
+mismatch fails the install and names the package, both URLs and both
+hashes. `apm update` re-resolves and records the new URL.
+
 The `acme/foo@registry-name#version` shorthand is **not supported** (deferred
 to v2) -- the `@` collides with npm/cargo/pip version syntax, with
 `git@host`, and with marketplace plugin shorthand. Use the object form.

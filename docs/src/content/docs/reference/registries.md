@@ -290,7 +290,9 @@ dependencies:
       - .agents/skills/foo/SKILL.md
 ```
 
-`resolved_url` is the trust anchor for re-installs -- APM re-fetches from the URL stored in the lockfile, not from the registry name, and re-verifies bytes against `resolved_hash`. A hash mismatch aborts the install before extraction. See [Lockfile spec](../../reference/lockfile-spec/) for full field semantics.
+`resolved_hash` is the trust anchor for re-installs. On `apm install` and `apm install --frozen`, APM replays the locked version from the dependency's **configured** registry and verifies the bytes against `resolved_hash` before extracting anything. `resolved_url` is advisory: APM never fetches it directly, so credentials only go to a registry you configured.
+
+**Moved registries and mirrors.** If you point the same registry name at a new URL (a moved endpoint or a mirror), replay fetches from the new URL. When the bytes match `resolved_hash`, the install succeeds, prints one `[i]` line naming both URLs, and leaves `apm.lock.yaml` unchanged. When they do not match, the install fails before extraction and names the package, both URLs, and the expected and actual hashes. Run `apm update` to re-resolve and record the new URL. See [Lockfile spec](../../reference/lockfile-spec/) for full field semantics.
 
 ## 5. Publish a package (producer summary)
 
