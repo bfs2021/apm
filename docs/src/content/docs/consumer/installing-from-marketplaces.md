@@ -246,9 +246,12 @@ commit without reading the catalog or needing the marketplace registration, so
 catalog edits do not change what installs. Only new entries, entries whose
 `name`, `marketplace` or `version` changed, and `apm update` resolve through
 the catalog. `--frozen` fails for an entry the lockfile does not record.
-Entries the catalog routes through a package registry are the exception: the
-lockfile does not record that registry binding, so they still resolve through
-the catalog.
+An entry the catalog routes through a package registry locks registry
+evidence instead of a commit: the exact version, `resolved_url` and
+`resolved_hash`. It replays the same way, from the configured registry that
+owns the locked URL, and the archive hash is checked before anything is
+extracted. `apm install plugin@catalog` writes such an entry to `apm.yml` in
+registry form (`id`, `registry`, `version`), never as a Git entry.
 
 Marketplace entries can also provide inline LSP or MCP servers when their
 downloaded source has no package manifest. APM validates these

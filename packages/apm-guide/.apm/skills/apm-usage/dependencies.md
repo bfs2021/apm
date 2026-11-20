@@ -375,6 +375,11 @@ object-form `version: v1.0.1` or `apm install pkg@catalog#v1.0.1` for a literal
 ref; CLI marketplace suffixes do not accept ranges. Raw refs bypass tag resolution. The lockfile records the resolved ref, not the marketplace
 placeholder. Semver selections also record the existing advisory `resolved_at`
 UTC timestamp; audit and replay do not use it to choose a version.
+A catalog entry with `registry:` resolves through that package registry
+instead: `apm install pkg@catalog` writes `{id, registry, version}` to
+`apm.yml`, and the lockfile records the exact `version`, `resolved_url` and
+`resolved_hash` with no commit. Locked entries replay, including `--frozen`,
+without the catalog, from the configured registry that owns `resolved_url`.
 Unknown keys in a marketplace entry are rejected.
 On a `*.ghe.com` marketplace, a plugin source of any type (`github`,
 `git-subdir`, `gitlab`, `url`) with a bare cross-repo `owner/repo` is refused
