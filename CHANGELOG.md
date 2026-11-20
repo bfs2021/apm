@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `apm install <bundle>` renders bundle agents to Codex TOML in `.codex/agents/` instead of skipping them; other targets still copy bundle files. (closes #3714, #4007)
 
+### Changed
+
+- `apm install <bundle>` into a Claude project stages always-on and directory instructions for `apm compile` into `AGENTS.md` and renders the rest as `.claude/rules/` files with `paths:`, like a package install. (closes #4034, #4071)
+
 ## [0.37.0] - 2026-11-20
 
 ### Highlights
