@@ -27,6 +27,9 @@ from scripts.architecture_linter.checks.transport_ls_remote_tags import (
 from scripts.architecture_linter.checks.transport_ls_remote_tags import (
     RULES as _LS_REMOTE_TAG_RULES,
 )
+from scripts.architecture_linter.checks.transport_marketplace_catalog_credentials import (
+    RULES as _CATALOG_CREDENTIAL_RULES,
+)
 from scripts.architecture_linter.checks.transport_network_and_runtime import (
     COLLECTORS as _NETWORK_COLLECTORS,
 )
@@ -61,6 +64,7 @@ RULES = (
     + _LS_REMOTE_TAG_RULES
     + _NETWORK_RULES
     + _REDIRECT_RULES
+    + _CATALOG_CREDENTIAL_RULES
 )
 COLLECTORS = (
     _AUTH_COLLECTORS
