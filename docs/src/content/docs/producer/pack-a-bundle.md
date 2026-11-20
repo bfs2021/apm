@@ -24,7 +24,8 @@ bundle.
 
 This is the producer side of [Deploy a local bundle](../../consumer/deploy-a-bundle/).
 Consumers who receive the artifact run `apm install ./your-bundle` and skip
-the registry resolver entirely.
+the registry resolver entirely. Install copies bundle files into each target's
+layout, except that it renders agents to TOML for Codex.
 
 ## What `apm pack` produces
 
