@@ -467,10 +467,11 @@ KNOWN_OUTPUT_CELLS: tuple[KnownOutputCell, ...] = (
         _runs("install", "--frozen"),
         r"Parked MCP server .*(: denied|from transitive package)",
         # Each MCP view build (once per phase) re-emits a denied or unapproved
-        # transitive park: the same top-level notice line appears twice.
+        # transitive park: the same notice appears twice, at top level or
+        # indented inside a package block (I9 compares [!] across indentation).
         output=(
-            r"^(\[!\] Parked MCP server [^\n]*?(?:: denied|from transitive package)[^\n]*)$"
-            r".*^\1$"
+            r"^[ \t]*(\[!\] Parked MCP server [^\n]*?(?:: denied|from transitive package)"
+            r"[^\n]*)$.*^[ \t]*\1$"
         ),
     ),
     KnownOutputCell(
