@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Claude projects load always-on and directory instructions from `AGENTS.md`, imported by `CLAUDE.md`: run `apm install`, then `apm compile`, and commit; hand-authored `CLAUDE.md` needs `@AGENTS.md`. (closes #3939, #4005)
 
+### Added
+
+- `apm install <bundle>` renders bundle agents to Codex TOML in `.codex/agents/` instead of skipping them; other targets still copy bundle files. (closes #3714, #4007)
+
 ## [0.37.0] - 2026-11-20
 
 ### Highlights
