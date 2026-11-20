@@ -60,6 +60,12 @@ _REGISTRY_URL = f"https://{REGISTRY_HOST}{BASE}"
 _DEPLOYED = Path(".github/instructions/guide.instructions.md")
 _INSTALL = ("install", "--target", "copilot", "--no-policy")
 _FROZEN = ("install", "--frozen", "--target", "copilot", "--no-policy")
+# The frozen preflight refuses a declaration whose registry lock row is not
+# locked evidence; the precise reason is pinned by the unit tests.
+_OUT_OF_SYNC = (
+    "--frozen: apm.lock.yaml is out of sync with apm.yml. - widget@corp: "
+    "declared source, ref, host provider, or transport differs from apm.lock.yaml"
+)
 
 
 def _tampered_archive() -> bytes:
@@ -282,7 +288,7 @@ def test_registry_marketplace_frozen_replay_fails_closed(
         scenario.write_manifest([{**declaration, "version": "^2.0.0"}])
         result = scenario.run(env, *_FROZEN, step="2-incompatible-selector")
         assert result.returncode != 0, _text(result)
-        assert "--frozen" in _text(result)
+        assert _OUT_OF_SYNC in " ".join(_text(result).split()), _text(result)
         scenario.write_manifest([declaration])
 
         lock = load_yaml(lock_path)
@@ -292,6 +298,7 @@ def test_registry_marketplace_frozen_replay_fails_closed(
         dump_yaml(lock, lock_path)
         result = scenario.run(env, *_FROZEN, step="3-incomplete-pin")
         assert result.returncode != 0, _text(result)
+        assert _OUT_OF_SYNC in " ".join(_text(result).split()), _text(result)
         lock_path.write_bytes(lock_bytes)
 
         scenario.gateway.archive = _tampered_archive()
