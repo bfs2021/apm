@@ -269,10 +269,12 @@ feature first with `apm experimental enable registries`; see
 package-registry resolver. Missing or malformed registry intent fails closed
 instead of silently falling back to the plugin's Git source.
 
-:::note[Hosted JSON is public HTTPS]
-Hosted `marketplace.json` URLs are public HTTPS sources: APM does not
-send custom auth headers. Use git-backed marketplaces for private
-catalogs.
+:::note[Private hosted JSON]
+Hosted `marketplace.json` URLs are fetched anonymously unless registered
+with `--name`. A private catalog then authenticates with
+`APM_MARKETPLACE_TOKEN_<NAME>` or `APM_MARKETPLACE_USER_<NAME>` plus
+`APM_MARKETPLACE_PASS_<NAME>`; see
+[Private hosted catalogs](../../reference/cli/marketplace/#private-hosted-catalogs).
 :::
 
 For generic HTTPS marketplaces, `marketplace.json` is fetched via Git.

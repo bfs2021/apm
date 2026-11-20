@@ -551,6 +551,25 @@ apm install
 
 For the full registry workflow — declaring registries, scoping dependencies, and lockfile semantics — see the [Registries guide](../../guides/registries/).
 
+## Marketplace catalog tokens
+
+A private hosted `marketplace.json` uses its own variables, separate from Git and registry credentials:
+
+| Env var | Auth method |
+|---|---|
+| `APM_MARKETPLACE_TOKEN_{NAME}` | `Authorization: Bearer <token>` |
+| `APM_MARKETPLACE_USER_{NAME}` + `APM_MARKETPLACE_PASS_{NAME}` | `Authorization: Basic <base64(user:pass)>` |
+
+`{NAME}` is the name you gave `apm marketplace add <url> --name NAME`, normalized like registry names. Bearer wins when both are set. There is no fallback: without these variables the catalog is fetched anonymously, and `.netrc`, `GITHUB_APM_PAT`, `ADO_APM_PAT`, Git credential helpers and `APM_REGISTRY_*` are never sent to it.
+
+```bash
+export APM_MARKETPLACE_TOKEN_CORP=your_token
+apm marketplace add https://catalog.example.com/team/marketplace.json --name corp
+apm install my-plugin@corp
+```
+
+The credential stays within the registered URL's origin, directory and query on every redirect hop, and never authenticates package downloads. A 401, 403 or sign-in redirect fails with the variable to set and exits 1. See [Private hosted catalogs](../../reference/cli/marketplace/#private-hosted-catalogs).
+
 ## Troubleshooting
 
 ### Rate limits on github.com
