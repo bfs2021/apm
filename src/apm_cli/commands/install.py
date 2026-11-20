@@ -406,8 +406,11 @@ def _resolve_package_references(
         verbose = bool(logger and logger.verbose)
         # Registry routing is authoritative: it validates its own version
         # selectors before git semver eligibility can defer the raw-ref probe.
-        if existing_source_is_registry or should_skip_github_probe_for_dep(
-            dep_ref, default_registry
+        # A catalog entry routed to a registry is never probed on Git (#4009).
+        if (
+            dep_ref.source == "registry"
+            or existing_source_is_registry
+            or should_skip_github_probe_for_dep(dep_ref, default_registry)
         ):
             ref_ok, ref_err = validate_registry_ref(dep_ref)
             if not ref_ok:
